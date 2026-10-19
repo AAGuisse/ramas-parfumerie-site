@@ -23,6 +23,10 @@ const STORE_CONFIG = {
   }
 };
 
+window.STORE_API_BASE = location.hostname.endsWith("github.io")
+  ? "https://ramas-parfumerie-app.onrender.com"
+  : "";
+
 /* ==========================================================================
    FAMILLES DE PRODUITS
    Chaque famille a sa propre page (onglet). "page" doit correspondre au nom
@@ -123,7 +127,7 @@ function loadManagedProducts() {
   if (typeof XMLHttpRequest === "undefined") return null;
   try {
     const request = new XMLHttpRequest();
-    request.open("GET", "/api/products", false);
+    request.open("GET", window.STORE_API_BASE + "/api/products", false);
     request.send(null);
     if (request.status !== 200) return null;
     const payload = JSON.parse(request.responseText);

@@ -1,13 +1,17 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 dotenv.config();
 
+const productStore = require('./product-store');
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_SECURE = String(process.env.SMTP_SECURE || 'true') === 'true';
@@ -15,31 +19,50 @@ const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const TO_EMAIL = process.env.TO_EMAIL || 'niangramatoulaye4@gmail.com';
-const PRODUCTS_FILE = path.join(__dirname, 'products.json');
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-function readManagedProducts() {
-  if (!fs.existsSync(PRODUCTS_FILE)) return null;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(PRODUCTS_FILE, 'utf8'));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error('Products file read failed:', error);
-    return [];
-  }
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+function safeEqual(left, right) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function writeManagedProducts(products) {
-  fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2) + '\n', 'utf8');
+function requireAdmin(req, res, next) {
+  if (!ADMIN_USER || !ADMIN_PASSWORD) {
+    return res.status(503).send('L’accès administrateur n’est pas configuré.');
+  }
+
+  const authorization = req.get('Authorization') || '';
+  const match = authorization.match(/^Basic ([A-Za-z0-9+/]+=*)$/);
+  if (match) {
+    const credentials = Buffer.from(match[1], 'base64').toString('utf8');
+    const separator = credentials.indexOf(':');
+    if (separator >= 0) {
+      const username = credentials.slice(0, separator);
+      const password = credentials.slice(separator + 1);
+      if (safeEqual(username, ADMIN_USER) && safeEqual(password, ADMIN_PASSWORD)) return next();
+    }
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="Ramas Parfumerie Admin", charset="UTF-8"');
+  return res.status(401).send('Authentification administrateur requise.');
 }
 
 function normalizeProduct(input, id) {
   const price = Number(input.price);
   const oldPrice = input.oldPrice === '' || input.oldPrice == null ? null : Number(input.oldPrice);
   return {
-    id,
+    id: id == null ? null : id,
     name: String(input.name || '').trim(),
     categoryId: String(input.categoryId || '').trim(),
     description: String(input.description || '').trim(),
@@ -54,66 +77,53 @@ function normalizeProduct(input, id) {
   };
 }
 
-app.get('/api/products', (_req, res) => {
-  const products = readManagedProducts();
-  res.json({ managed: products !== null, products: products || [] });
+app.get('/api/products', async (_req, res) => {
+  res.json(await productStore.list());
 });
 
-app.put('/api/products', (req, res) => {
+app.put('/api/products', requireAdmin, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ ok: false, message: 'Le catalogue doit être un tableau de produits.' });
   }
-  writeManagedProducts(req.body);
+  await productStore.replace(req.body);
   res.json({ ok: true, count: req.body.length });
 });
 
-app.post('/api/products', (req, res) => {
-  const products = readManagedProducts() || [];
-  const product = normalizeProduct(req.body || {}, products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1);
+app.post('/api/products', requireAdmin, async (req, res) => {
+  const product = normalizeProduct(req.body || {}, null);
   if (!product.name || !product.categoryId || product.price <= 0) {
     return res.status(400).json({ ok: false, message: 'Nom, famille et prix sont obligatoires.' });
   }
-  products.push(product);
-  writeManagedProducts(products);
-  res.status(201).json({ ok: true, product });
+  const created = await productStore.create(product);
+  res.status(201).json({ ok: true, product: created });
 });
 
-app.put('/api/products/:id', (req, res) => {
-  const products = readManagedProducts() || [];
+app.put('/api/products/:id', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const index = products.findIndex(item => Number(item.id) === id);
-  if (index < 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
   const product = normalizeProduct(req.body || {}, id);
   if (!product.name || !product.categoryId || product.price <= 0) {
     return res.status(400).json({ ok: false, message: 'Nom, famille et prix sont obligatoires.' });
   }
-  products[index] = product;
-  writeManagedProducts(products);
-  res.json({ ok: true, product });
+  const updated = await productStore.update(id, product);
+  if (!updated) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
+  res.json({ ok: true, product: updated });
 });
 
-app.delete('/api/products/:id', (req, res) => {
-  const products = readManagedProducts() || [];
+app.delete('/api/products/:id', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const remaining = products.filter(item => Number(item.id) !== id);
-  if (remaining.length === products.length) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
-  writeManagedProducts(remaining);
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
+  const removed = await productStore.remove(id);
+  if (!removed) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
   res.json({ ok: true });
-});
-
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  next();
 });
 
 const staticRoot = fs.existsSync(path.join(__dirname, 'index.html'))
   ? __dirname
   : path.join(__dirname, '..');
+app.get('/admin.html', requireAdmin, (_req, res) => {
+  res.sendFile(path.join(staticRoot, 'admin.html'));
+});
 app.use(express.static(staticRoot));
 
 function isValidEmail(value) {
@@ -179,9 +189,22 @@ app.get('/api/health', (_req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Serveur démarré sur http://localhost:${PORT}`);
-  });
+  productStore.initialize()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Serveur démarré sur http://localhost:${PORT}`);
+      });
+    })
+    .catch(error => {
+      console.error('Product database initialization failed:', error);
+      process.exitCode = 1;
+    });
 }
+
+app.use((error, _req, res, next) => {
+  console.error('Request failed:', error);
+  if (res.headersSent) return next(error);
+  return res.status(500).json({ ok: false, message: 'Une erreur interne est survenue.' });
+});
 
 module.exports = app;

@@ -2,7 +2,7 @@ name: Deploy static site to GitHub Pages
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -23,12 +23,54 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Detect site root
+        id: site
+        shell: bash
+        run: |
+          set -e
+          if [ -f "index.html" ]; then
+            echo "path=." >> "$GITHUB_OUTPUT"
+          elif [ -f "ramas-parfumerie-site/index.html" ]; then
+            echo "path=./ramas-parfumerie-site" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=." >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      - name: Prepare public storefront
+        shell: bash
+        run: |
+          set -e
+          mkdir -p _site
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.vercel/' \
+            --exclude='_site/' \
+            --exclude='node_modules/' \
+            --exclude='admin.html' \
+            --exclude='assets/admin.js' \
+            --exclude='assets/admin.css' \
+            --exclude='assets/admin-fix.css' \
+            --exclude='api/' \
+            --exclude='server.js' \
+            --exclude='product-store.js' \
+            --exclude='render.yaml' \
+            --exclude='vercel.json' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='.env*' \
+            --exclude='products.json' \
+            "${{ steps.site.outputs.path }}/" _site/
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

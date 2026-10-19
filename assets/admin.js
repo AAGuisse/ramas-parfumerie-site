@@ -17,6 +17,7 @@ let activeCategory = "";
 let managedProducts = false;
 let localCatalog = false;
 const byId = id => document.getElementById(id);
+const apiUrl = path => (window.STORE_API_BASE || "") + path;
 const categoryName = id => (categories.find(category => category.id === id) || {}).name || id;
 const escapeHtml = value => String(value || "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;", "'":"&#039;"}[character]));
 const adminFormatPrice = value => Number(value || 0).toLocaleString("fr-FR").replace(/\u202f/g, " ") + " FCFA";
@@ -100,7 +101,7 @@ function saveLocalCatalog() {
 }
 async function loadProducts() {
   try {
-    const response = await fetch("/api/products");
+    const response = await fetch(apiUrl("/api/products"));
     if (!response.ok) throw new Error("API indisponible");
     const payload = await response.json();
     managedProducts = payload.managed;
@@ -118,7 +119,7 @@ async function loadProducts() {
 async function ensureManagedProducts() {
   if (managedProducts) return;
   try {
-    const response = await fetch("/api/products", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(products) });
+    const response = await fetch(apiUrl("/api/products"), { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(products) });
     if (!response.ok) throw new Error("API indisponible");
     managedProducts = true;
   } catch (error) {
@@ -149,7 +150,7 @@ byId("productForm").addEventListener("submit", async event => {
   event.preventDefault(); setFormError("");
   const payload = await formProduct();
   if (!payload.name || !payload.categoryId || !payload.price || payload.price <= 0) { setFormError("Le nom, la famille et un prix valide sont obligatoires."); return; }
-  const url = editingId ? "/api/products/" + editingId : "/api/products";
+  const url = apiUrl(editingId ? "/api/products/" + editingId : "/api/products");
   try {
     await ensureManagedProducts();
     if (localCatalog) {
@@ -181,7 +182,7 @@ byId("adminProductList").addEventListener("click", async event => {
       products = products.map(item => Number(item.id) === Number(product.id) ? { ...item, stock:!item.stock } : item);
       saveLocalCatalog(); renderProducts(); return;
     }
-    const response = await fetch("/api/products/" + product.id, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...product, stock:!product.stock }) });
+    const response = await fetch(apiUrl("/api/products/" + product.id), { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...product, stock:!product.stock }) });
     if (response.ok) { setNotice(product.stock ? "Produit marqué en rupture de stock." : "Produit remis en stock."); await loadProducts(); }
     return;
   }
@@ -193,7 +194,7 @@ byId("adminProductList").addEventListener("click", async event => {
       products = products.filter(item => Number(item.id) !== Number(product.id));
       saveLocalCatalog(); if (editingId === product.id) resetForm(); renderProducts(); return;
     }
-    const response = await fetch("/api/products/" + product.id, { method:"DELETE" });
+    const response = await fetch(apiUrl("/api/products/" + product.id), { method:"DELETE" });
     if (response.ok) { setNotice("Produit supprimé."); if (editingId === product.id) resetForm(); await loadProducts(); }
   }
 });
