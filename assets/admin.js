@@ -36,6 +36,22 @@ function localProducts() {
     return [];
   }
 }
+function importDeviceId() {
+  let id = localStorage.getItem("ramasProductImportDevice");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("ramasProductImportDevice", id);
+  }
+  return id;
+}
+function errorMessageFromResponse(response, body) {
+  try {
+    const result = JSON.parse(body);
+    if (result.message) return result.message;
+  } catch (error) {}
+  if (response.status === 413) return "L'import est trop volumineux. Réessaie ; il sera envoyé en petits lots.";
+  return "Erreur du serveur (" + response.status + "). Réessaie dans quelques instants.";
+}
 function offerLocalImport() {
   const savedProducts = localProducts();
   if (!savedProducts.length) return;
@@ -49,19 +65,46 @@ function offerLocalImport() {
     if (!window.confirm("Copier ces produits dans le catalogue partagé pour les voir sur tous vos appareils ?")) return;
     button.disabled = true;
     try {
-      const response = await fetch(apiUrl("/api/products"), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(savedProducts)
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || "Import impossible.");
+      const deviceId = importDeviceId();
+      const entries = savedProducts.map(product => ({
+        ...product,
+        importKey: deviceId + "-" + product.id
+      }));
+      const batches = [];
+      let batch = [];
+      let batchSize = 2;
+      for (const entry of entries) {
+        const entrySize = new TextEncoder().encode(JSON.stringify(entry)).length;
+        if (batch.length && (batch.length >= 20 || batchSize + entrySize > 2 * 1024 * 1024)) {
+          batches.push(batch);
+          batch = [];
+          batchSize = 2;
+        }
+        batch.push(entry);
+        batchSize += entrySize;
+      }
+      if (batch.length) batches.push(batch);
+
+      let imported = 0;
+      for (const [index, productsBatch] of batches.entries()) {
+        const response = await fetch(apiUrl("/api/products/import"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(productsBatch)
+        });
+        const body = await response.text();
+        if (!response.ok) throw new Error(errorMessageFromResponse(response, body));
+        const result = JSON.parse(body);
+        imported += result.count;
+        button.textContent = "Import en cours : " + imported + " / " + savedProducts.length;
+        if (index + 1 < batches.length) await new Promise(resolve => setTimeout(resolve, 150));
+      }
       localStorage.removeItem("ramasProducts");
-      setNotice("Import réussi : " + result.count + " produit" + (result.count > 1 ? "s" : "") + " sont maintenant partagés entre vos appareils.");
+      setNotice("Import réussi : " + imported + " produit" + (imported > 1 ? "s" : "") + " sont maintenant partagés entre vos appareils.");
       await loadProducts();
     } catch (error) {
       button.disabled = false;
-      setNotice(error.message, true);
+      setNotice(error.message || "Erreur inconnue pendant l'import. Réessaie ; aucun produit déjà importé ne sera dupliqué.", true);
     }
   });
   notice.append(" ", button);

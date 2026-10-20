@@ -99,6 +99,31 @@ app.put('/api/products', requireAdmin, requirePersistentStore, async (req, res) 
   res.json({ ok: true, count: req.body.length });
 });
 
+app.post('/api/products/import', requireAdmin, requirePersistentStore, async (req, res) => {
+  if (!Array.isArray(req.body) || req.body.length === 0 || req.body.length > 50) {
+    return res.status(400).json({ ok: false, message: 'Le lot d’import doit contenir entre 1 et 50 produits.' });
+  }
+
+  const imported = req.body.map((item, index) => {
+    const product = normalizeProduct(item, null);
+    const importKey = String(item.importKey || '');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-\d+$/i.test(importKey) || !product.name || !product.categoryId || product.price <= 0) {
+      return { error: index + 1 };
+    }
+    return { product, importKey };
+  });
+  const invalid = imported.find(item => item.error);
+  if (invalid) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Le produit numéro ' + invalid.error + ' est incomplet ou invalide.'
+    });
+  }
+
+  const count = await productStore.importProducts(imported);
+  res.json({ ok: true, count });
+});
+
 app.post('/api/products', requireAdmin, requirePersistentStore, async (req, res) => {
   const product = normalizeProduct(req.body || {}, null);
   if (!product.name || !product.categoryId || product.price <= 0) {
