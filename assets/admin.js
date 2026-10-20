@@ -192,8 +192,8 @@ async function loadProducts() {
     renderProducts();
     if (!payload.persistent && !localDevelopment) {
       setNotice("La base partagée n'est pas connectée. Les modifications sont désactivées pour éviter de perdre vos produits.", true);
-    } else if (payload.persistent && !payload.managed && !products.length) {
-      setNotice("La base partagée est prête.");
+    } else if (payload.persistent) {
+      if (!payload.managed && !products.length) setNotice("La base partagée est prête.");
       offerLocalImport();
     }
   } catch (error) {
