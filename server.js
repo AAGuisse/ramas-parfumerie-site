@@ -58,6 +58,16 @@ function requireAdmin(req, res, next) {
   return res.status(401).send('Authentification administrateur requise.');
 }
 
+function requirePersistentStore(_req, res, next) {
+  if (process.env.NODE_ENV === 'production' && !productStore.isPersistent()) {
+    return res.status(503).json({
+      ok: false,
+      message: 'Le stockage partagé des produits n’est pas configuré. Les produits ne peuvent pas être enregistrés.'
+    });
+  }
+  next();
+}
+
 function normalizeProduct(input, id) {
   const price = Number(input.price);
   const oldPrice = input.oldPrice === '' || input.oldPrice == null ? null : Number(input.oldPrice);
@@ -81,7 +91,7 @@ app.get('/api/products', async (_req, res) => {
   res.json(await productStore.list());
 });
 
-app.put('/api/products', requireAdmin, async (req, res) => {
+app.put('/api/products', requireAdmin, requirePersistentStore, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ ok: false, message: 'Le catalogue doit être un tableau de produits.' });
   }
@@ -89,7 +99,7 @@ app.put('/api/products', requireAdmin, async (req, res) => {
   res.json({ ok: true, count: req.body.length });
 });
 
-app.post('/api/products', requireAdmin, async (req, res) => {
+app.post('/api/products', requireAdmin, requirePersistentStore, async (req, res) => {
   const product = normalizeProduct(req.body || {}, null);
   if (!product.name || !product.categoryId || product.price <= 0) {
     return res.status(400).json({ ok: false, message: 'Nom, famille et prix sont obligatoires.' });
@@ -98,7 +108,7 @@ app.post('/api/products', requireAdmin, async (req, res) => {
   res.status(201).json({ ok: true, product: created });
 });
 
-app.put('/api/products/:id', requireAdmin, async (req, res) => {
+app.put('/api/products/:id', requireAdmin, requirePersistentStore, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
   const product = normalizeProduct(req.body || {}, id);
@@ -110,7 +120,7 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true, product: updated });
 });
 
-app.delete('/api/products/:id', requireAdmin, async (req, res) => {
+app.delete('/api/products/:id', requireAdmin, requirePersistentStore, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
   const removed = await productStore.remove(id);
@@ -185,7 +195,7 @@ app.post('/api/newsletter', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, status: 'server-running' });
+  res.json({ ok: true, status: 'server-running', persistentProducts: productStore.isPersistent() });
 });
 
 if (require.main === module) {

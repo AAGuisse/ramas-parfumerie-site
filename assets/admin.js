@@ -16,6 +16,7 @@ let editingId = null;
 let activeCategory = "";
 let managedProducts = false;
 let localCatalog = false;
+const localDevelopment = ["localhost", "127.0.0.1"].includes(location.hostname);
 const byId = id => document.getElementById(id);
 const apiUrl = path => (window.STORE_API_BASE || "") + path;
 const categoryName = id => (categories.find(category => category.id === id) || {}).name || id;
@@ -26,6 +27,44 @@ function setNotice(message, isError) {
   const notice = byId("adminNotice");
   notice.textContent = message || "";
   notice.classList.toggle("is-error", Boolean(isError));
+}
+function localProducts() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("ramasProducts"));
+    return Array.isArray(stored) ? stored : [];
+  } catch (error) {
+    return [];
+  }
+}
+function offerLocalImport() {
+  const savedProducts = localProducts();
+  if (!savedProducts.length) return;
+
+  const notice = byId("adminNotice");
+  const button = document.createElement("button");
+  button.className = "btn btn-secondary";
+  button.type = "button";
+  button.textContent = "Importer " + savedProducts.length + " produit" + (savedProducts.length > 1 ? "s" : "") + " de cet appareil";
+  button.addEventListener("click", async () => {
+    if (!window.confirm("Copier ces produits dans le catalogue partagé pour les voir sur tous vos appareils ?")) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(apiUrl("/api/products"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savedProducts)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Import impossible.");
+      localStorage.removeItem("ramasProducts");
+      setNotice("Import réussi : " + result.count + " produit" + (result.count > 1 ? "s" : "") + " sont maintenant partagés entre vos appareils.");
+      await loadProducts();
+    } catch (error) {
+      button.disabled = false;
+      setNotice(error.message, true);
+    }
+  });
+  notice.append(" ", button);
 }
 function setFormError(message) { byId("formError").textContent = message || ""; }
 function fillCategorySelects() {
@@ -105,19 +144,36 @@ async function loadProducts() {
     if (!response.ok) throw new Error("API indisponible");
     const payload = await response.json();
     managedProducts = payload.managed;
-    products = payload.managed ? payload.products : (window.STORE_PRODUCTS || []);
+    localCatalog = localDevelopment && !payload.persistent;
+    products = payload.managed ? payload.products : [];
     renderProducts();
+    if (!payload.persistent && !localDevelopment) {
+      setNotice("La base partagée n'est pas connectée. Les modifications sont désactivées pour éviter de perdre vos produits.", true);
+    } else if (payload.persistent && !payload.managed && !products.length) {
+      setNotice("La base partagée est prête.");
+      offerLocalImport();
+    }
   } catch (error) {
     managedProducts = false;
-    localCatalog = true;
-    try { products = JSON.parse(localStorage.getItem("ramasProducts")) || window.STORE_PRODUCTS || []; }
-    catch (storageError) { products = window.STORE_PRODUCTS || []; }
+    localCatalog = localDevelopment;
+    try {
+      products = localDevelopment
+        ? JSON.parse(localStorage.getItem("ramasProducts")) || window.STORE_PRODUCTS || []
+        : [];
+    } catch (storageError) {
+      products = localDevelopment ? window.STORE_PRODUCTS || [] : [];
+    }
     renderProducts();
-    setNotice("Mode consultation : le serveur catalogue n'est pas connecté.", true);
+    setNotice(localDevelopment
+      ? "Mode consultation : le serveur catalogue n'est pas connecté."
+      : "Le serveur catalogue est indisponible. Aucune modification ne sera enregistrée.", true);
   }
 }
 async function ensureManagedProducts() {
   if (managedProducts) return;
+  if (!localDevelopment) {
+    throw new Error("La base de données partagée n'est pas prête. Vos modifications ne sont pas enregistrées.");
+  }
   try {
     const response = await fetch(apiUrl("/api/products"), { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(products) });
     if (!response.ok) throw new Error("API indisponible");

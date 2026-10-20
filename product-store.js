@@ -146,7 +146,7 @@ async function initialize() {
 async function list() {
   if (!pool) {
     const products = readFileProducts();
-    return { managed: products !== null, products: products || [] };
+    return { managed: products !== null, persistent: false, products: products || [] };
   }
 
   await initialize();
@@ -156,6 +156,7 @@ async function list() {
   ]);
   return {
     managed: settings.rows[0].managed,
+    persistent: true,
     products: result.rows.map(mapProduct)
   };
 }
@@ -239,4 +240,12 @@ async function remove(id) {
   return result.rowCount > 0;
 }
 
-module.exports = { initialize, list, replace, create, update, remove };
+module.exports = {
+  initialize,
+  isPersistent: () => pool !== null,
+  list,
+  replace,
+  create,
+  update,
+  remove
+};
