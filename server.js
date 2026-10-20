@@ -11,6 +11,7 @@ const productStore = require('./product-store');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
@@ -50,7 +51,13 @@ function requireAdmin(req, res, next) {
     if (separator >= 0) {
       const username = credentials.slice(0, separator);
       const password = credentials.slice(separator + 1);
-      if (safeEqual(username, ADMIN_USER) && safeEqual(password, ADMIN_PASSWORD)) return next();
+      const acceptedUsernames = [ADMIN_USER, ADMIN_EMAIL].filter(Boolean);
+      const usernameMatches = acceptedUsernames.some(acceptedUsername => {
+        const candidate = acceptedUsername.includes('@') ? username.toLowerCase() : username;
+        const expected = acceptedUsername.includes('@') ? acceptedUsername.toLowerCase() : acceptedUsername;
+        return safeEqual(candidate, expected);
+      });
+      if (usernameMatches && safeEqual(password, ADMIN_PASSWORD)) return next();
     }
   }
 

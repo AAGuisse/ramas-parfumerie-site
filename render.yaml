@@ -14,5 +14,7 @@ services:
         sync: false
       - key: ADMIN_USER
         value: ramas-admin
+      - key: ADMIN_EMAIL
+        value: niangramatoulaye4@gmail.com
       - key: ADMIN_PASSWORD
         generateValue: true
