@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-const productsFile = path.join(__dirname, 'products.json');
+const productsFile = process.env.PRODUCTS_FILE || path.join(__dirname, 'products.json');
 const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL })
   : null;
@@ -163,6 +163,13 @@ async function list() {
   };
 }
 
+async function checkDatabase() {
+  if (!pool) return false;
+  await initialize();
+  await pool.query('SELECT 1');
+  return true;
+}
+
 async function replace(products) {
   if (!pool) {
     writeFileProducts(products);
@@ -286,6 +293,7 @@ async function remove(id) {
 module.exports = {
   initialize,
   isPersistent: () => pool !== null,
+  checkDatabase,
   list,
   replace,
   create,

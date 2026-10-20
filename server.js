@@ -95,6 +95,7 @@ function normalizeProduct(input, id) {
 }
 
 app.get('/api/products', async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.json(await productStore.list());
 });
 
@@ -226,8 +227,17 @@ app.post('/api/newsletter', async (req, res) => {
   }
 });
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, status: 'server-running', persistentProducts: productStore.isPersistent() });
+app.get('/api/health', async (_req, res) => {
+  if (process.env.NODE_ENV === 'production' && !productStore.isPersistent()) {
+    return res.status(503).json({ ok: false, status: 'database-not-configured' });
+  }
+  try {
+    const persistentProducts = await productStore.checkDatabase();
+    return res.json({ ok: true, status: 'server-running', persistentProducts });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    return res.status(503).json({ ok: false, status: 'database-unavailable' });
+  }
 });
 
 if (require.main === module) {
