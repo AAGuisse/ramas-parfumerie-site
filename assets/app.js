@@ -4,8 +4,17 @@
    Chaque bloc vérifie que ses éléments existent avant de s'attacher, car
    certaines pages (ex. contact.html) n'ont pas tous les blocs (galerie...).
    ========================================================================== */
+window.STORE_PRODUCTS_READY.then(function(){
 (function(){
 "use strict";
+
+if (window.STORE_PRODUCTS_ERROR) {
+  const notice = document.createElement("div");
+  notice.setAttribute("role", "alert");
+  notice.textContent = window.STORE_PRODUCTS_ERROR;
+  notice.style.cssText = "position:relative;z-index:1000;padding:12px 20px;background:#fff3cd;color:#664d03;text-align:center";
+  document.body.prepend(notice);
+}
 
 /* Stockage du panier : localStorage si disponible, sinon mémoire. Le panier
    est commun à toutes les pages puisqu'il utilise localStorage. */
@@ -120,7 +129,7 @@ function productCardHtml(p){
   return '<article class="product-card" data-id="' + p.id + '">'
     + '<div class="product-media">'
     +   '<div class="product-badges">' + badgeHtml + outHtml + '</div>'
-    +   '<img src="' + placeholderImage(p.name, p.reference) + '" alt="' + escapeXml(p.name) + ', ' + escapeXml(cat.name) + '" loading="lazy" width="400" height="500">'
+    +   '<img src="' + escapeXml(productImage(p)) + '" alt="' + escapeXml(p.name) + ', ' + escapeXml(cat.name) + '" loading="lazy" width="400" height="500">'
     + '</div>'
     + '<div class="product-body">'
     +   '<span class="product-cat">' + escapeXml(cat.name) + '</span>'
@@ -157,7 +166,7 @@ function openProductModal(id){
   const similar = PRODUCTS.filter(x => x.categoryId === p.categoryId && x.id !== p.id).slice(0,4);
   document.getElementById("productModalContent").innerHTML =
     '<div class="product-modal-grid">'
-    + '<div class="product-modal-media"><img src="' + placeholderImage(p.name, p.reference) + '" alt="' + escapeXml(p.name) + '"></div>'
+    + '<div class="product-modal-media"><img src="' + escapeXml(productImage(p)) + '" alt="' + escapeXml(p.name) + '"></div>'
     + '<div class="product-modal-body">'
     +   '<span class="product-cat">' + escapeXml(cat.name) + '</span>'
     +   '<h2 id="productModalTitle">' + escapeXml(p.name) + '</h2>'
@@ -247,7 +256,7 @@ function renderCartDrawer(){
       const p = getProduct(i.id);
       if (!p) return "";
       return '<div class="cart-item">'
-        + '<img src="' + placeholderImage(p.name, p.reference) + '" alt="' + escapeXml(p.name) + '">'
+        + '<img src="' + escapeXml(productImage(p)) + '" alt="' + escapeXml(p.name) + '">'
         + '<div class="cart-item-info">'
         +   '<span class="cart-item-name">' + escapeXml(p.name) + '</span>'
         +   '<span>' + formatPrice(p.price) + '</span>'
@@ -519,3 +528,4 @@ window.__cartApi = { addToCart, removeFromCart, changeCartQty, clearCart, cartTo
 window.notify = notify;
 
 })();
+});

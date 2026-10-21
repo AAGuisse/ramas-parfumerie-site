@@ -4,6 +4,7 @@
    charger ce script. Prévu pour des centaines de produits : la pagination
    "Charger plus" évite d'afficher toute la famille d'un coup.
    ========================================================================== */
+window.STORE_PRODUCTS_READY.then(function(){
 (function(){
 "use strict";
 window.CATALOGUE_PAGE = true;
@@ -124,3 +125,4 @@ document.getElementById("familyProductCount").textContent = allInCategory.length
 renderCatalogue();
 
 })();
+});

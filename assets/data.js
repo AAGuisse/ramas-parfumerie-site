@@ -119,26 +119,36 @@ function generateDemoProducts(){
   return list;
 }
 
-function loadManagedProducts() {
-  try {
-    const stored = localStorage.getItem("ramasProducts");
-    if (stored) return JSON.parse(stored);
-  } catch (error) {}
-  if (typeof XMLHttpRequest === "undefined") return null;
-  try {
-    const request = new XMLHttpRequest();
-    request.open("GET", window.STORE_API_BASE + "/api/products", false);
-    request.send(null);
-    if (request.status !== 200) return null;
-    const payload = JSON.parse(request.responseText);
-    return payload.managed ? payload.products : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-const PRODUCTS = loadManagedProducts() || generateDemoProducts();
+let PRODUCTS = generateDemoProducts();
 window.STORE_PRODUCTS = PRODUCTS;
+window.STORE_PRODUCTS_ERROR = null;
+window.STORE_PRODUCTS_READY = (async function(){
+  if (window.STORE_API_BASE) {
+    try {
+      const response = await fetch(window.STORE_API_BASE + "/api/products", { cache: "no-store" });
+      if (!response.ok) throw new Error("Réponse API " + response.status);
+      const payload = await response.json();
+      if (!payload || !Array.isArray(payload.products)) throw new Error("Catalogue API invalide");
+      PRODUCTS = payload.managed ? payload.products : generateDemoProducts();
+    } catch (error) {
+      console.error("Chargement du catalogue partagé impossible :", error);
+      PRODUCTS = [];
+      window.STORE_PRODUCTS_ERROR = "Le catalogue est temporairement indisponible. Rechargez cette page dans quelques instants.";
+    }
+  } else {
+    try {
+      const stored = localStorage.getItem("ramasProducts");
+      if (stored) {
+        const localProducts = JSON.parse(stored);
+        if (Array.isArray(localProducts)) PRODUCTS = localProducts;
+      }
+    } catch (error) {
+      console.error("Chargement du catalogue local impossible :", error);
+    }
+  }
+  window.STORE_PRODUCTS = PRODUCTS;
+  return PRODUCTS;
+})();
 
 function getProduct(id){ return PRODUCTS.find(p => p.id === id); }
 function getProductsByCategory(categoryId){ return PRODUCTS.filter(p => p.categoryId === categoryId); }
@@ -167,6 +177,11 @@ function placeholderImage(label, seed){
     + '<text x="200" y="462" text-anchor="middle" font-family="Work Sans, sans-serif" font-size="11" fill="#6E5C4F">Image à venir</text>'
     + '</svg>';
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+function productImage(product){
+  const image = typeof product.image === "string" ? product.image.trim() : "";
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(image) || /^https?:\/\//i.test(image)) return image;
+  return placeholderImage(product.name, product.reference);
 }
 function isPlaceholder(value){
   return typeof value === "string" && value.trim().startsWith("[");

@@ -1,6 +1,7 @@
 /* ==========================================================================
    PAGE D'ACCUEIL
    ========================================================================== */
+window.STORE_PRODUCTS_READY.then(function(){
 (function(){
 "use strict";
 
@@ -14,3 +15,4 @@ document.getElementById("heroImage").alt = "Logo de Rama's Parfumerie";
 renderNewArrivals();
 
 })();
+});
