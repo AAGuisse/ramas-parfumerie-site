@@ -16,6 +16,11 @@ let editingId = null;
 let activeCategory = "";
 let managedProducts = false;
 let localCatalog = false;
+let editingSnapshot = null;
+let editingConflict = false;
+let productsSnapshot = "";
+let refreshInProgress = false;
+let syncErrorShown = false;
 const localDevelopment = ["localhost", "127.0.0.1"].includes(location.hostname);
 const byId = id => document.getElementById(id);
 const apiUrl = path => (window.STORE_API_BASE || "") + path;
@@ -116,6 +121,8 @@ function fillCategorySelects() {
 }
 function resetForm() {
   editingId = null;
+  editingSnapshot = null;
+  editingConflict = false;
   byId("productForm").reset();
   byId("productId").value = "";
   byId("productStock").checked = true;
@@ -125,10 +132,29 @@ function resetForm() {
   byId("formTitle").textContent = "Nouveau produit";
   byId("saveProductBtn").textContent = "Ajouter le produit";
   byId("saveProductTop").textContent = "Ajouter";
+  byId("saveProductBtn").disabled = false;
+  byId("saveProductTop").disabled = false;
   setFormError("");
+}
+function productRevision(product) {
+  return JSON.stringify([
+    product.id, product.name, product.categoryId, product.description, product.price,
+    product.oldPrice, product.stock, product.badge, product.reference, product.image,
+    product.imageUrl, product.imageVersion, product.featured, product.popularity
+  ]);
+}
+function setEditingConflict() {
+  editingConflict = true;
+  byId("saveProductBtn").disabled = true;
+  byId("saveProductTop").disabled = true;
+  setFormError("Ce produit a été modifié par l’autre administrateur. Fermez puis rouvrez sa fiche avant de modifier.");
 }
 function editProduct(product) {
   editingId = product.id;
+  editingSnapshot = productRevision(product);
+  editingConflict = false;
+  byId("saveProductBtn").disabled = false;
+  byId("saveProductTop").disabled = false;
   byId("productId").value = product.id;
   byId("productName").value = product.name || "";
   byId("productCategory").value = product.categoryId;
@@ -182,15 +208,50 @@ function saveLocalCatalog() {
   managedProducts = true;
   localCatalog = true;
 }
-async function loadProducts() {
+async function loadProducts({ background = false } = {}) {
+  if (refreshInProgress) return;
+  refreshInProgress = true;
   try {
-    const response = await fetch(apiUrl("/api/products" + (localDevelopment ? "?includeImages=true" : "")));
+    const response = await fetch(apiUrl("/api/products" + (localDevelopment ? "?includeImages=true" : "")), { cache:"no-store" });
     if (!response.ok) throw new Error("API indisponible");
     const payload = await response.json();
+    if (!payload || !Array.isArray(payload.products)) throw new Error("Réponse du catalogue invalide");
     managedProducts = payload.managed;
     localCatalog = localDevelopment && !payload.persistent;
-    products = payload.managed ? payload.products : [];
-    renderProducts();
+    if (!payload.persistent && !localDevelopment) {
+      if (background) {
+        if (!syncErrorShown) setNotice("La base partagée est indisponible. Les dernières données chargées restent affichées.", true);
+        syncErrorShown = true;
+        return;
+      }
+      products = [];
+      productsSnapshot = "";
+      renderProducts();
+      setNotice("La base partagée n'est pas connectée. Les modifications sont désactivées pour éviter de perdre vos produits.", true);
+      return;
+    }
+
+    const nextProducts = payload.managed ? payload.products : [];
+    const nextSnapshot = JSON.stringify(nextProducts.map(productRevision));
+    const changed = nextSnapshot !== productsSnapshot;
+    products = nextProducts;
+    productsSnapshot = nextSnapshot;
+    if (changed) renderProducts();
+
+    if (changed && editingId !== null) {
+      const currentProduct = products.find(product => Number(product.id) === Number(editingId));
+      if (!currentProduct || productRevision(currentProduct) !== editingSnapshot) setEditingConflict();
+    }
+
+    if (background) {
+      if (syncErrorShown) setNotice(changed
+        ? "Connexion rétablie ; le catalogue a été actualisé."
+        : "Connexion rétablie ; le catalogue est synchronisé.");
+      else if (changed) setNotice("Catalogue actualisé avec les changements de l’autre administrateur.");
+      syncErrorShown = false;
+      return;
+    }
+
     if (!payload.persistent && !localDevelopment) {
       setNotice("La base partagée n'est pas connectée. Les modifications sont désactivées pour éviter de perdre vos produits.", true);
     } else if (payload.persistent) {
@@ -198,8 +259,14 @@ async function loadProducts() {
       offerLocalImport();
     }
   } catch (error) {
+    if (background) {
+      if (!syncErrorShown) setNotice("Impossible d’actualiser le catalogue partagé. Vérifiez la connexion ; les dernières données chargées restent affichées.", true);
+      syncErrorShown = true;
+      return;
+    }
     managedProducts = false;
     localCatalog = localDevelopment;
+    productsSnapshot = "";
     try {
       products = localDevelopment
         ? JSON.parse(localStorage.getItem("ramasProducts")) || window.STORE_PRODUCTS || []
@@ -211,6 +278,8 @@ async function loadProducts() {
     setNotice(localDevelopment
       ? "Mode consultation : le serveur catalogue n'est pas connecté."
       : "Le serveur catalogue est indisponible. Aucune modification ne sera enregistrée.", true);
+  } finally {
+    refreshInProgress = false;
   }
 }
 async function ensureManagedProducts() {
@@ -283,6 +352,10 @@ async function formProduct() {
 }
 byId("productForm").addEventListener("submit", async event => {
   event.preventDefault(); setFormError("");
+  if (editingConflict) {
+    setFormError("Ce produit a été modifié par l’autre administrateur. Fermez puis rouvrez sa fiche avant de modifier.");
+    return;
+  }
   try {
     const payload = await formProduct();
     if (!payload.name || !payload.categoryId || !payload.price || payload.price <= 0) { setFormError("Le nom, la famille et un prix valide sont obligatoires."); return; }
@@ -351,3 +424,9 @@ byId("adminFamilyTabs").addEventListener("click", event => {
   renderProducts();
 });
 fillCategorySelects(); resetForm(); loadProducts();
+window.setInterval(() => {
+  if (!document.hidden) loadProducts({ background:true });
+}, 5000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) loadProducts({ background:true });
+});

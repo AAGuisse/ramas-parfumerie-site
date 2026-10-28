@@ -93,7 +93,7 @@ test('catalogue API requires admin access, persists locally in tests, and report
   const result = await catalogue.json();
   assert.equal(result.products.length, 3);
   assert.equal(result.products[0].image, undefined);
-  assert.equal(result.products[0].imageUrl, '/api/products/1/image');
+  assert.equal(result.products[0].imageUrl, '/api/products/1/image?v=1');
   assert.equal(result.products[1].name, 'Produit importé');
   assert.equal(result.products[2].imageUrl, null);
 
@@ -104,6 +104,8 @@ test('catalogue API requires admin access, persists locally in tests, and report
   const image = await fetch(`${baseUrl}/api/products/1/image`);
   assert.equal(image.status, 200);
   assert.match(image.headers.get('content-type'), /image\/jpeg/);
+  assert.match(image.headers.get('cache-control'), /no-cache/);
+  assert.ok(image.headers.get('etag'));
   assert.equal(Buffer.from(await image.arrayBuffer()).toString(), 'test');
   assert.equal((await fetch(`${baseUrl}/api/products/3/image`)).status, 404);
 
@@ -115,6 +117,20 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(updated.status, 200);
   const preservedImage = await fetch(`${baseUrl}/api/products/1/image`);
   assert.equal(preservedImage.status, 200);
+
+  const replacementImage = await fetch(`${baseUrl}/api/products/1`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify({
+      name: 'Parfum test modifié',
+      categoryId: 'parfums',
+      price: 10,
+      image: 'data:image/png;base64,bmV3'
+    })
+  });
+  assert.equal(replacementImage.status, 200);
+  const updatedCatalogue = await fetch(`${baseUrl}/api/products`);
+  assert.equal((await updatedCatalogue.json()).products[0].imageUrl, '/api/products/1/image?v=2');
 
   process.env.NODE_ENV = 'production';
   const blockedWrite = await fetch(`${baseUrl}/api/products`, {

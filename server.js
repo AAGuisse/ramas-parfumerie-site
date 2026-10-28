@@ -89,7 +89,7 @@ function normalizeProduct(input, id) {
     stock: input.stock !== false,
     badge: ['nouveau', 'promotion'].includes(input.badge) ? input.badge : null,
     reference: String(input.reference || '').trim(),
-    image: image && /^\/api\/products\/\d+\/image$/.test(image) ? undefined : image,
+    image: image && /^\/api\/products\/\d+\/image(?:\?v=\d+)?$/.test(image) ? undefined : image,
     featured: input.featured === true,
     popularity: Number(input.popularity) || 50
   };
@@ -107,7 +107,7 @@ app.get('/api/products/:id/image', async (req, res) => {
   if (!image) return res.status(404).end();
   const match = image.match(/^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/i);
   if (!match) return res.status(404).end();
-  res.set('Cache-Control', 'public, max-age=300');
+  res.set('Cache-Control', 'public, no-cache, must-revalidate');
   res.type(match[1]).send(Buffer.from(match[2], 'base64'));
 });
 

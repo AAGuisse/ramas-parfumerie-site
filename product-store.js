@@ -11,7 +11,7 @@ let initialization;
 const columns = `
   id, name, category_id AS "categoryId", description, price,
   old_price AS "oldPrice", stock, badge, reference, image,
-  featured, popularity
+  featured, popularity, image_version AS "imageVersion"
 `;
 
 function mapProduct(row) {
@@ -20,14 +20,15 @@ function mapProduct(row) {
     id: Number(row.id),
     price: Number(row.price),
     oldPrice: row.oldPrice === null ? null : Number(row.oldPrice),
-    popularity: Number(row.popularity)
+    popularity: Number(row.popularity),
+    imageVersion: Number(row.imageVersion || 1)
   };
 }
 
 function publicProduct(product) {
   const { image, ...details } = product;
   const imageUrl = typeof image === 'string' && /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(image)
-    ? `/api/products/${product.id}/image`
+    ? `/api/products/${product.id}/image?v=${product.imageVersion || 1}`
     : typeof image === 'string' && /^https:\/\//i.test(image) ? image : null;
   return { ...details, imageUrl };
 }
@@ -122,11 +123,13 @@ async function initialize() {
           badge TEXT,
           reference TEXT NOT NULL DEFAULT '',
           image TEXT NOT NULL DEFAULT '',
+          image_version BIGINT NOT NULL DEFAULT 1,
           featured BOOLEAN NOT NULL DEFAULT FALSE,
           popularity INTEGER NOT NULL DEFAULT 50
         )
       `);
       await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS import_key TEXT UNIQUE');
+      await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_version BIGINT NOT NULL DEFAULT 1');
       await pool.query(`
         CREATE TABLE IF NOT EXISTS catalog_settings (
           id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -169,8 +172,8 @@ async function list(includeImages = false) {
     : pool.query(`
       SELECT id, name, category_id AS "categoryId", description, price,
              old_price AS "oldPrice", stock, badge, reference, featured,
-             popularity,
-             CASE WHEN image ~* '^data:image/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$' THEN '/api/products/' || id::text || '/image'
+             popularity, image_version AS "imageVersion",
+             CASE WHEN image ~* '^data:image/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$' THEN '/api/products/' || id::text || '/image?v=' || image_version::text
                   WHEN image LIKE 'https://%' THEN image
                   ELSE NULL END AS "imageUrl"
       FROM products
@@ -190,7 +193,8 @@ async function list(includeImages = false) {
           id: Number(row.id),
           price: Number(row.price),
           oldPrice: row.oldPrice === null ? null : Number(row.oldPrice),
-          popularity: Number(row.popularity)
+          popularity: Number(row.popularity),
+          imageVersion: Number(row.imageVersion || 1)
         }))
   };
 }
@@ -226,7 +230,7 @@ async function create(product) {
   if (!pool) {
     const products = readFileProducts() || [];
     const id = products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
-    const created = { ...product, id };
+    const created = { ...product, id, imageVersion: 1 };
     products.push(created);
     writeFileProducts(products);
     return created;
@@ -257,7 +261,14 @@ async function importProducts(entries) {
       const id = index >= 0
         ? products[index].id
         : products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
-      const imported = { ...entry.product, id, importKey: entry.importKey };
+      const previousVersion = index >= 0 ? Number(products[index].imageVersion) || 1 : 0;
+      const imageChanged = index >= 0 && products[index].image !== entry.product.image;
+      const imported = {
+        ...entry.product,
+        id,
+        importKey: entry.importKey,
+        imageVersion: index < 0 ? 1 : previousVersion + (imageChanged ? 1 : 0)
+      };
       if (index >= 0) products[index] = imported;
       else products.push(imported);
     }
@@ -277,7 +288,8 @@ async function importProducts(entries) {
              old_price = EXCLUDED.old_price, stock = EXCLUDED.stock,
              badge = EXCLUDED.badge, reference = EXCLUDED.reference,
              image = EXCLUDED.image, featured = EXCLUDED.featured,
-             popularity = EXCLUDED.popularity`,
+             popularity = EXCLUDED.popularity,
+             image_version = products.image_version + CASE WHEN products.image IS DISTINCT FROM EXCLUDED.image THEN 1 ELSE 0 END`,
         [
           importKey, product.name, product.categoryId, product.description,
           product.price, product.oldPrice, product.stock, product.badge,
@@ -299,6 +311,7 @@ async function update(id, product) {
       ...products[index],
       ...product,
       image: product.image === undefined ? products[index].image : product.image,
+      imageVersion: (Number(products[index].imageVersion) || 1) + (product.image !== undefined && product.image !== products[index].image ? 1 : 0),
       id
     };
     writeFileProducts(products);
@@ -311,7 +324,8 @@ async function update(id, product) {
       `UPDATE products
        SET name = $1, category_id = $2, description = $3, price = $4,
            old_price = $5, stock = $6, badge = $7, reference = $8,
-           image = COALESCE($9, image), featured = $10, popularity = $11
+           image = COALESCE($9, image), featured = $10, popularity = $11,
+           image_version = image_version + CASE WHEN $9 IS NOT NULL AND image IS DISTINCT FROM $9 THEN 1 ELSE 0 END
        WHERE id = $12
        RETURNING ${columns}`,
       [
