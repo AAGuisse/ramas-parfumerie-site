@@ -59,7 +59,9 @@ test('catalogue API requires admin access, persists locally in tests, and report
     })
   });
   assert.equal(created.status, 201);
-  assert.equal((await created.json()).product.name, 'Parfum test');
+  const createdProduct = (await created.json()).product;
+  assert.equal(createdProduct.name, 'Parfum test');
+  assert.equal(createdProduct.revision, 1);
 
   const importBody = [{
     importKey: '00000000-0000-4000-8000-000000000001-1',
@@ -112,11 +114,19 @@ test('catalogue API requires admin access, persists locally in tests, and report
   const updated = await fetch(`${baseUrl}/api/products/1`, {
     method: 'PUT',
     headers: adminHeaders(),
-    body: JSON.stringify({ name: 'Parfum test', categoryId: 'parfums', price: 10, stock: false })
+    body: JSON.stringify({ name: 'Parfum test', categoryId: 'parfums', price: 10, stock: false, revision: 1 })
   });
   assert.equal(updated.status, 200);
+  assert.equal((await updated.json()).product.revision, 2);
   const preservedImage = await fetch(`${baseUrl}/api/products/1/image`);
   assert.equal(preservedImage.status, 200);
+
+  const staleUpdate = await fetch(`${baseUrl}/api/products/1`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify({ name: 'Modification ancienne', categoryId: 'parfums', price: 10, revision: 1 })
+  });
+  assert.equal(staleUpdate.status, 409);
 
   const replacementImage = await fetch(`${baseUrl}/api/products/1`, {
     method: 'PUT',
@@ -125,14 +135,43 @@ test('catalogue API requires admin access, persists locally in tests, and report
       name: 'Parfum test modifié',
       categoryId: 'parfums',
       price: 10,
+      revision: 2,
       image: 'data:image/png;base64,bmV3'
     })
   });
   assert.equal(replacementImage.status, 200);
   const updatedCatalogue = await fetch(`${baseUrl}/api/products`);
-  assert.equal((await updatedCatalogue.json()).products[0].imageUrl, '/api/products/1/image?v=2');
+  const updatedProducts = await updatedCatalogue.json();
+  assert.equal(updatedProducts.products[0].imageUrl, '/api/products/1/image?v=2');
+  assert.equal(updatedProducts.products[0].revision, 3);
+
+  const staleDelete = await fetch(`${baseUrl}/api/products/1?revision=2`, {
+    method: 'DELETE',
+    headers: adminHeaders()
+  });
+  assert.equal(staleDelete.status, 409);
+
+  const deleteCurrentVersion = await fetch(`${baseUrl}/api/products/1?revision=3`, {
+    method: 'DELETE',
+    headers: adminHeaders()
+  });
+  assert.equal(deleteCurrentVersion.status, 200);
+
+  const missingRevision = await fetch(`${baseUrl}/api/products/1`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify({ name: 'Modification sans version', categoryId: 'parfums', price: 10 })
+  });
+  assert.equal(missingRevision.status, 428);
 
   process.env.NODE_ENV = 'production';
+  const blockedReplacement = await fetch(`${baseUrl}/api/products`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify([])
+  });
+  assert.equal(blockedReplacement.status, 405);
+
   const blockedWrite = await fetch(`${baseUrl}/api/products`, {
     method: 'POST',
     headers: adminHeaders(),

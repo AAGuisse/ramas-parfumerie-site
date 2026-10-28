@@ -11,7 +11,7 @@ let initialization;
 const columns = `
   id, name, category_id AS "categoryId", description, price,
   old_price AS "oldPrice", stock, badge, reference, image,
-  featured, popularity, image_version AS "imageVersion"
+  featured, popularity, image_version AS "imageVersion", revision
 `;
 
 function mapProduct(row) {
@@ -21,7 +21,8 @@ function mapProduct(row) {
     price: Number(row.price),
     oldPrice: row.oldPrice === null ? null : Number(row.oldPrice),
     popularity: Number(row.popularity),
-    imageVersion: Number(row.imageVersion || 1)
+    imageVersion: Number(row.imageVersion || 1),
+    revision: Number(row.revision || 1)
   };
 }
 
@@ -30,7 +31,7 @@ function publicProduct(product) {
   const imageUrl = typeof image === 'string' && /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(image)
     ? `/api/products/${product.id}/image?v=${product.imageVersion || 1}`
     : typeof image === 'string' && /^https:\/\//i.test(image) ? image : null;
-  return { ...details, imageUrl };
+  return { ...details, revision: Number(product.revision) || 1, imageUrl };
 }
 
 function readFileProducts() {
@@ -124,12 +125,14 @@ async function initialize() {
           reference TEXT NOT NULL DEFAULT '',
           image TEXT NOT NULL DEFAULT '',
           image_version BIGINT NOT NULL DEFAULT 1,
+          revision BIGINT NOT NULL DEFAULT 1,
           featured BOOLEAN NOT NULL DEFAULT FALSE,
           popularity INTEGER NOT NULL DEFAULT 50
         )
       `);
       await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS import_key TEXT UNIQUE');
       await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_version BIGINT NOT NULL DEFAULT 1');
+      await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1');
       await pool.query(`
         CREATE TABLE IF NOT EXISTS catalog_settings (
           id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -172,7 +175,7 @@ async function list(includeImages = false) {
     : pool.query(`
       SELECT id, name, category_id AS "categoryId", description, price,
              old_price AS "oldPrice", stock, badge, reference, featured,
-             popularity, image_version AS "imageVersion",
+             popularity, image_version AS "imageVersion", revision,
              CASE WHEN image ~* '^data:image/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$' THEN '/api/products/' || id::text || '/image?v=' || image_version::text
                   WHEN image LIKE 'https://%' THEN image
                   ELSE NULL END AS "imageUrl"
@@ -194,7 +197,8 @@ async function list(includeImages = false) {
           price: Number(row.price),
           oldPrice: row.oldPrice === null ? null : Number(row.oldPrice),
           popularity: Number(row.popularity),
-          imageVersion: Number(row.imageVersion || 1)
+          imageVersion: Number(row.imageVersion || 1),
+          revision: Number(row.revision || 1)
         }))
   };
 }
@@ -230,7 +234,7 @@ async function create(product) {
   if (!pool) {
     const products = readFileProducts() || [];
     const id = products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
-    const created = { ...product, id, imageVersion: 1 };
+    const created = { ...product, id, imageVersion: 1, revision: 1 };
     products.push(created);
     writeFileProducts(products);
     return created;
@@ -263,11 +267,17 @@ async function importProducts(entries) {
         : products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
       const previousVersion = index >= 0 ? Number(products[index].imageVersion) || 1 : 0;
       const imageChanged = index >= 0 && products[index].image !== entry.product.image;
+      const changedFields = [
+        'name', 'categoryId', 'description', 'price', 'oldPrice', 'stock',
+        'badge', 'reference', 'image', 'featured', 'popularity'
+      ];
+      const productChanged = index >= 0 && changedFields.some(field => products[index][field] !== entry.product[field]);
       const imported = {
         ...entry.product,
         id,
         importKey: entry.importKey,
-        imageVersion: index < 0 ? 1 : previousVersion + (imageChanged ? 1 : 0)
+        imageVersion: index < 0 ? 1 : previousVersion + (imageChanged ? 1 : 0),
+        revision: index < 0 ? 1 : (Number(products[index].revision) || 1) + (productChanged ? 1 : 0)
       };
       if (index >= 0) products[index] = imported;
       else products.push(imported);
@@ -289,7 +299,8 @@ async function importProducts(entries) {
              badge = EXCLUDED.badge, reference = EXCLUDED.reference,
              image = EXCLUDED.image, featured = EXCLUDED.featured,
              popularity = EXCLUDED.popularity,
-             image_version = products.image_version + CASE WHEN products.image IS DISTINCT FROM EXCLUDED.image THEN 1 ELSE 0 END`,
+             image_version = products.image_version + CASE WHEN products.image IS DISTINCT FROM EXCLUDED.image THEN 1 ELSE 0 END,
+             revision = products.revision + CASE WHEN ROW(products.name, products.category_id, products.description, products.price, products.old_price, products.stock, products.badge, products.reference, products.image, products.featured, products.popularity) IS DISTINCT FROM ROW(EXCLUDED.name, EXCLUDED.category_id, EXCLUDED.description, EXCLUDED.price, EXCLUDED.old_price, EXCLUDED.stock, EXCLUDED.badge, EXCLUDED.reference, EXCLUDED.image, EXCLUDED.featured, EXCLUDED.popularity) THEN 1 ELSE 0 END`,
         [
           importKey, product.name, product.categoryId, product.description,
           product.price, product.oldPrice, product.stock, product.badge,
@@ -302,16 +313,19 @@ async function importProducts(entries) {
   });
 }
 
-async function update(id, product) {
+async function update(id, product, expectedRevision = null) {
   if (!pool) {
     const products = readFileProducts() || [];
     const index = products.findIndex(item => Number(item.id) === id);
     if (index < 0) return null;
+    const currentRevision = Number(products[index].revision) || 1;
+    if (expectedRevision !== null && currentRevision !== expectedRevision) return { conflict:true };
     products[index] = {
       ...products[index],
       ...product,
       image: product.image === undefined ? products[index].image : product.image,
       imageVersion: (Number(products[index].imageVersion) || 1) + (product.image !== undefined && product.image !== products[index].image ? 1 : 0),
+      revision: currentRevision + 1,
       id
     };
     writeFileProducts(products);
@@ -320,12 +334,17 @@ async function update(id, product) {
 
   await initialize();
   return withTransaction(async client => {
+    const current = await client.query('SELECT revision FROM products WHERE id = $1 FOR UPDATE', [id]);
+    if (!current.rows[0]) return null;
+    if (expectedRevision !== null && Number(current.rows[0].revision) !== expectedRevision) return { conflict:true };
+
     const result = await client.query(
       `UPDATE products
        SET name = $1, category_id = $2, description = $3, price = $4,
            old_price = $5, stock = $6, badge = $7, reference = $8,
            image = COALESCE($9, image), featured = $10, popularity = $11,
-           image_version = image_version + CASE WHEN $9 IS NOT NULL AND image IS DISTINCT FROM $9 THEN 1 ELSE 0 END
+           image_version = image_version + CASE WHEN $9 IS NOT NULL AND image IS DISTINCT FROM $9 THEN 1 ELSE 0 END,
+           revision = revision + 1
        WHERE id = $12
        RETURNING ${columns}`,
       [
@@ -338,18 +357,25 @@ async function update(id, product) {
   });
 }
 
-async function remove(id) {
+async function remove(id, expectedRevision = null) {
   if (!pool) {
     const products = readFileProducts() || [];
+    const current = products.find(item => Number(item.id) === id);
+    if (!current) return false;
+    if (expectedRevision !== null && (Number(current.revision) || 1) !== expectedRevision) return { conflict:true };
     const remaining = products.filter(item => Number(item.id) !== id);
-    if (remaining.length === products.length) return false;
     writeFileProducts(remaining);
     return true;
   }
 
   await initialize();
-  const result = await pool.query('DELETE FROM products WHERE id = $1', [id]);
-  return result.rowCount > 0;
+  return withTransaction(async client => {
+    const current = await client.query('SELECT revision FROM products WHERE id = $1 FOR UPDATE', [id]);
+    if (!current.rows[0]) return false;
+    if (expectedRevision !== null && Number(current.rows[0].revision) !== expectedRevision) return { conflict:true };
+    const result = await client.query('DELETE FROM products WHERE id = $1', [id]);
+    return result.rowCount > 0;
+  });
 }
 
 module.exports = {

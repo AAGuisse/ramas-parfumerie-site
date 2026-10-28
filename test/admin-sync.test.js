@@ -12,6 +12,9 @@ test('admin refreshes shared products and protects a product changed by another 
   assert.match(adminScript, /addEventListener\("visibilitychange"/);
   assert.match(adminScript, /Ce produit a été modifié par l’autre administrateur/);
   assert.match(adminScript, /editingConflict\) \{\s*setFormError/);
+  assert.match(adminScript, /revision: editingId === null \? undefined : editingRevision/);
+  assert.match(adminScript, /revision:product\.revision/);
+  assert.match(adminScript, /\?revision=/);
 });
 
 test('admin forces browsers to load the latest scripts and shows whole product photos', () => {

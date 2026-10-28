@@ -17,6 +17,7 @@ let activeCategory = "";
 let managedProducts = false;
 let localCatalog = false;
 let editingSnapshot = null;
+let editingRevision = null;
 let editingConflict = false;
 let productsSnapshot = "";
 let refreshInProgress = false;
@@ -122,6 +123,7 @@ function fillCategorySelects() {
 function resetForm() {
   editingId = null;
   editingSnapshot = null;
+  editingRevision = null;
   editingConflict = false;
   byId("productForm").reset();
   byId("productId").value = "";
@@ -140,7 +142,7 @@ function productRevision(product) {
   return JSON.stringify([
     product.id, product.name, product.categoryId, product.description, product.price,
     product.oldPrice, product.stock, product.badge, product.reference, product.image,
-    product.imageUrl, product.imageVersion, product.featured, product.popularity
+    product.imageUrl, product.imageVersion, product.revision, product.featured, product.popularity
   ]);
 }
 function setEditingConflict() {
@@ -151,6 +153,7 @@ function setEditingConflict() {
 }
 function editProduct(product) {
   editingId = product.id;
+  editingRevision = Number(product.revision) || 1;
   editingSnapshot = productRevision(product);
   editingConflict = false;
   byId("saveProductBtn").disabled = false;
@@ -347,7 +350,10 @@ async function formProduct() {
     price: Number(byId("productPrice").value), oldPrice: byId("productOldPrice").value,
     reference: byId("productReference").value.trim(), description: byId("productDescription").value.trim(),
     image, badge: byId("productBadge").value || null,
-    popularity: Number(byId("productPopularity").value) || 50, stock: byId("productStock").checked, featured: byId("productFeatured").checked
+    popularity: Number(byId("productPopularity").value) || 50,
+    stock: byId("productStock").checked,
+    featured: byId("productFeatured").checked,
+    revision: editingId === null ? undefined : editingRevision
   };
 }
 byId("productForm").addEventListener("submit", async event => {
@@ -364,14 +370,24 @@ byId("productForm").addEventListener("submit", async event => {
     if (localCatalog) {
       const nextId = products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
       products = editingId
-        ? products.map(product => Number(product.id) === Number(editingId) ? { ...product, ...payload, id: editingId } : product)
-        : [...products, { ...payload, id: nextId }];
+        ? products.map(product => Number(product.id) === Number(editingId) ? {
+          ...product,
+          ...payload,
+          revision: (Number(product.revision) || 1) + 1,
+          id: editingId
+        } : product)
+        : [...products, { ...payload, revision:1, id: nextId }];
       saveLocalCatalog();
       setNotice(editingId ? "Produit modifié sur cet appareil." : "Produit ajouté sur cet appareil.");
       resetForm(); renderProducts(); return;
     }
     const response = await fetch(url, { method: editingId ? "PUT" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
     const result = await response.json();
+    if (response.status === 409) {
+      setEditingConflict();
+      await loadProducts();
+      return;
+    }
     if (!response.ok) throw new Error(result.message || "Enregistrement impossible.");
     setNotice(editingId ? "Produit modifié." : "Produit ajouté.");
     resetForm(); await loadProducts();
@@ -385,25 +401,50 @@ byId("adminProductList").addEventListener("click", async event => {
   if (stockButton) {
     const product = products.find(item => Number(item.id) === Number(stockButton.dataset.stock));
     if (!product) return;
-    await ensureManagedProducts();
-    if (localCatalog) {
-      products = products.map(item => Number(item.id) === Number(product.id) ? { ...item, stock:!item.stock } : item);
-      saveLocalCatalog(); renderProducts(); return;
+    try {
+      await ensureManagedProducts();
+      if (localCatalog) {
+        products = products.map(item => Number(item.id) === Number(product.id)
+          ? { ...item, stock:!item.stock, revision:(Number(item.revision) || 1) + 1 }
+          : item);
+        saveLocalCatalog(); renderProducts(); return;
+      }
+      const response = await fetch(apiUrl("/api/products/" + product.id), {
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ ...product, stock:!product.stock, revision:product.revision })
+      });
+      const result = await response.json();
+      if (response.status === 409) setNotice(result.message || "Le produit a changé. Le catalogue va être actualisé.", true);
+      else if (!response.ok) setNotice(result.message || "La disponibilité n’a pas pu être modifiée.", true);
+      else setNotice(product.stock ? "Produit marqué en rupture de stock." : "Produit remis en stock.");
+      await loadProducts();
+    } catch (error) {
+      setNotice(error.message || "La disponibilité n’a pas pu être modifiée.", true);
     }
-    const response = await fetch(apiUrl("/api/products/" + product.id), { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...product, stock:!product.stock }) });
-    if (response.ok) { setNotice(product.stock ? "Produit marqué en rupture de stock." : "Produit remis en stock."); await loadProducts(); }
     return;
   }
   if (deleteButton) {
     const product = products.find(item => Number(item.id) === Number(deleteButton.dataset.delete));
     if (!product || !window.confirm("Supprimer « " + product.name + " » ?")) return;
-    await ensureManagedProducts();
-    if (localCatalog) {
-      products = products.filter(item => Number(item.id) !== Number(product.id));
-      saveLocalCatalog(); if (editingId === product.id) resetForm(); renderProducts(); return;
+    try {
+      await ensureManagedProducts();
+      if (localCatalog) {
+        products = products.filter(item => Number(item.id) !== Number(product.id));
+        saveLocalCatalog(); if (editingId === product.id) resetForm(); renderProducts(); return;
+      }
+      const response = await fetch(apiUrl("/api/products/" + product.id + "?revision=" + encodeURIComponent(product.revision || 1)), { method:"DELETE" });
+      const result = await response.json();
+      if (response.status === 409) setNotice(result.message || "Le produit a changé. Le catalogue va être actualisé.", true);
+      else if (!response.ok) setNotice(result.message || "Le produit n’a pas pu être supprimé.", true);
+      else {
+        setNotice("Produit supprimé.");
+        if (editingId === product.id) resetForm();
+      }
+      await loadProducts();
+    } catch (error) {
+      setNotice(error.message || "Le produit n’a pas pu être supprimé.", true);
     }
-    const response = await fetch(apiUrl("/api/products/" + product.id), { method:"DELETE" });
-    if (response.ok) { setNotice("Produit supprimé."); if (editingId === product.id) resetForm(); await loadProducts(); }
   }
 });
 byId("newProductBtn").addEventListener("click", () => { resetForm(); byId("productFormPanel").scrollIntoView({ behavior:"smooth" }); });

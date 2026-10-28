@@ -111,7 +111,15 @@ app.get('/api/products/:id/image', async (req, res) => {
   res.type(match[1]).send(Buffer.from(match[2], 'base64'));
 });
 
-app.put('/api/products', requireAdmin, requirePersistentStore, async (req, res) => {
+app.put('/api/products', requireAdmin, (req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(405).json({
+      ok: false,
+      message: 'Le remplacement complet du catalogue est désactivé en production.'
+    });
+  }
+  next();
+}, requirePersistentStore, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ ok: false, message: 'Le catalogue doit être un tableau de produits.' });
   }
@@ -156,19 +164,45 @@ app.post('/api/products', requireAdmin, requirePersistentStore, async (req, res)
 app.put('/api/products/:id', requireAdmin, requirePersistentStore, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
+  const expectedRevision = Number(req.body?.revision);
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    return res.status(428).json({
+      ok: false,
+      message: 'La version du produit est manquante. Rechargez le catalogue avant de modifier.'
+    });
+  }
   const product = normalizeProduct(req.body || {}, id);
   if (!product.name || !product.categoryId || product.price <= 0) {
     return res.status(400).json({ ok: false, message: 'Nom, famille et prix sont obligatoires.' });
   }
-  const updated = await productStore.update(id, product);
+  const updated = await productStore.update(id, product, expectedRevision);
   if (!updated) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
+  if (updated.conflict) {
+    return res.status(409).json({
+      ok: false,
+      message: 'Cette fiche a été modifiée par l’autre administrateur. Rechargez-la avant de réessayer.'
+    });
+  }
   res.json({ ok: true, product: updated });
 });
 
 app.delete('/api/products/:id', requireAdmin, requirePersistentStore, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
-  const removed = await productStore.remove(id);
+  const expectedRevision = Number(req.query.revision);
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    return res.status(428).json({
+      ok: false,
+      message: 'La version du produit est manquante. Rechargez le catalogue avant de supprimer.'
+    });
+  }
+  const removed = await productStore.remove(id, expectedRevision);
+  if (removed && typeof removed === 'object' && removed.conflict) {
+    return res.status(409).json({
+      ok: false,
+      message: 'Cette fiche a été modifiée par l’autre administrateur. Rechargez-la avant de la supprimer.'
+    });
+  }
   if (!removed) return res.status(404).json({ ok: false, message: 'Produit introuvable.' });
   res.json({ ok: true });
 });
@@ -177,6 +211,7 @@ const staticRoot = fs.existsSync(path.join(__dirname, 'index.html'))
   ? __dirname
   : path.join(__dirname, '..');
 app.get('/admin.html', requireAdmin, (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(staticRoot, 'admin.html'));
 });
 app.use(express.static(staticRoot));
