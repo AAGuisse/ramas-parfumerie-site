@@ -7,7 +7,8 @@ const root = path.join(__dirname, '..');
 
 test('storefront product photos are contained in smaller square cards and bounded detail views', () => {
   const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
-  assert.match(styles, /\.product-media img\{[^}]*aspect-ratio:1;[^}]*object-fit:contain/);
+  assert.match(styles, /\.product-media\{[^}]*aspect-ratio:1;[^}]*overflow:hidden/);
+  assert.match(styles, /\.product-media img\{[^}]*position:absolute;[^}]*height:100%;[^}]*object-fit:contain/);
   assert.match(styles, /\.product-modal-media img\{[^}]*height:min\(42vh,360px\);[^}]*object-fit:contain/);
 });
 
