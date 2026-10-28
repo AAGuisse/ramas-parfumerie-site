@@ -8,7 +8,7 @@ window.STORE_PRODUCTS_READY.then(function(){
 function renderRow(elementId, list){
   document.getElementById(elementId).innerHTML = list.map(productCardHtml).join("");
 }
-function renderNewArrivals(){ renderRow("newArrivalsRow", PRODUCTS.filter(p => p.badge === "nouveau").slice(0, 12)); }
+function renderNewArrivals(){ renderRow("newArrivalsRow", getNewestProducts(12)); }
 
 document.getElementById("heroImage").src = "assets/logo-ramas-hero.png";
 document.getElementById("heroImage").alt = "Logo de Rama's Parfumerie";

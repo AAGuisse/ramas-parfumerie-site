@@ -152,6 +152,12 @@ window.STORE_PRODUCTS_READY = (async function(){
 
 function getProduct(id){ return PRODUCTS.find(p => p.id === id); }
 function getProductsByCategory(categoryId){ return PRODUCTS.filter(p => p.categoryId === categoryId); }
+function getCategoryMaxPrice(categoryId){
+  return getProductsByCategory(categoryId).reduce((max, product) => Math.max(max, Number(product.price) || 0), 0);
+}
+function getNewestProducts(limit){
+  return PRODUCTS.slice().sort((a, b) => Number(b.id) - Number(a.id)).slice(0, limit);
+}
 
 /* ==========================================================================
    OUTILS PARTAGÉS
@@ -180,7 +186,11 @@ function placeholderImage(label, seed){
 }
 function productImage(product){
   const image = typeof product.image === "string" ? product.image.trim() : "";
-  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(image) || /^https?:\/\//i.test(image)) return image;
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(image) || /^https?:\/\//i.test(image)) return image;
+  if (typeof product.imageUrl === "string" && product.imageUrl.startsWith("/api/products/")) {
+    return (window.STORE_API_BASE || "") + product.imageUrl;
+  }
+  if (typeof product.imageUrl === "string" && /^https:\/\//i.test(product.imageUrl)) return product.imageUrl;
   return placeholderImage(product.name, product.reference);
 }
 function isPlaceholder(value){

@@ -24,6 +24,14 @@ function mapProduct(row) {
   };
 }
 
+function publicProduct(product) {
+  const { image, ...details } = product;
+  const imageUrl = typeof image === 'string' && /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(image)
+    ? `/api/products/${product.id}/image`
+    : typeof image === 'string' && /^https:\/\//i.test(image) ? image : null;
+  return { ...details, imageUrl };
+}
+
 function readFileProducts() {
   if (!fs.existsSync(productsFile)) return null;
   try {
@@ -64,7 +72,7 @@ async function insertProduct(client, product) {
     product.stock,
     product.badge,
     product.reference,
-    product.image,
+    product.image || '',
     product.featured,
     product.popularity
   ];
@@ -145,22 +153,57 @@ async function initialize() {
   await initialization;
 }
 
-async function list() {
+async function list(includeImages = false) {
   if (!pool) {
     const products = readFileProducts();
-    return { managed: products !== null, persistent: false, products: products || [] };
+    return {
+      managed: products !== null,
+      persistent: false,
+      products: includeImages ? products || [] : (products || []).map(publicProduct)
+    };
   }
 
   await initialize();
+  const productQuery = includeImages
+    ? pool.query(`SELECT ${columns} FROM products ORDER BY id`)
+    : pool.query(`
+      SELECT id, name, category_id AS "categoryId", description, price,
+             old_price AS "oldPrice", stock, badge, reference, featured,
+             popularity,
+             CASE WHEN image ~* '^data:image/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$' THEN '/api/products/' || id::text || '/image'
+                  WHEN image LIKE 'https://%' THEN image
+                  ELSE NULL END AS "imageUrl"
+      FROM products
+      ORDER BY id
+    `);
   const [settings, result] = await Promise.all([
     pool.query('SELECT managed FROM catalog_settings WHERE id = 1'),
-    pool.query(`SELECT ${columns} FROM products ORDER BY id`)
+    productQuery
   ]);
   return {
     managed: settings.rows[0].managed,
     persistent: true,
-    products: result.rows.map(mapProduct)
+    products: includeImages
+      ? result.rows.map(mapProduct)
+      : result.rows.map(row => ({
+          ...row,
+          id: Number(row.id),
+          price: Number(row.price),
+          oldPrice: row.oldPrice === null ? null : Number(row.oldPrice),
+          popularity: Number(row.popularity)
+        }))
   };
+}
+
+async function getImage(id) {
+  if (!pool) {
+    const products = readFileProducts() || [];
+    return products.find(product => Number(product.id) === id)?.image || null;
+  }
+
+  await initialize();
+  const result = await pool.query('SELECT image FROM products WHERE id = $1', [id]);
+  return result.rows[0]?.image || null;
 }
 
 async function checkDatabase() {
@@ -198,7 +241,7 @@ async function create(product) {
       [
         product.name, product.categoryId, product.description, product.price,
         product.oldPrice, product.stock, product.badge, product.reference,
-        product.image, product.featured, product.popularity
+        product.image || '', product.featured, product.popularity
       ]
     );
     await client.query('UPDATE catalog_settings SET managed = TRUE WHERE id = 1');
@@ -238,7 +281,7 @@ async function importProducts(entries) {
         [
           importKey, product.name, product.categoryId, product.description,
           product.price, product.oldPrice, product.stock, product.badge,
-          product.reference, product.image, product.featured, product.popularity
+          product.reference, product.image || '', product.featured, product.popularity
         ]
       );
     }
@@ -252,7 +295,12 @@ async function update(id, product) {
     const products = readFileProducts() || [];
     const index = products.findIndex(item => Number(item.id) === id);
     if (index < 0) return null;
-    products[index] = { ...product, id };
+    products[index] = {
+      ...products[index],
+      ...product,
+      image: product.image === undefined ? products[index].image : product.image,
+      id
+    };
     writeFileProducts(products);
     return products[index];
   }
@@ -263,7 +311,7 @@ async function update(id, product) {
       `UPDATE products
        SET name = $1, category_id = $2, description = $3, price = $4,
            old_price = $5, stock = $6, badge = $7, reference = $8,
-           image = $9, featured = $10, popularity = $11
+           image = COALESCE($9, image), featured = $10, popularity = $11
        WHERE id = $12
        RETURNING ${columns}`,
       [
@@ -295,6 +343,7 @@ module.exports = {
   isPersistent: () => pool !== null,
   checkDatabase,
   list,
+  getImage,
   replace,
   create,
   importProducts,

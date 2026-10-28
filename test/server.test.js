@@ -51,7 +51,12 @@ test('catalogue API requires admin access, persists locally in tests, and report
   const created = await fetch(`${baseUrl}/api/products`, {
     method: 'POST',
     headers: adminHeaders('ADMIN@example.com'),
-    body: JSON.stringify({ name: 'Parfum test', categoryId: 'parfums', price: 10 })
+    body: JSON.stringify({
+      name: 'Parfum test',
+      categoryId: 'parfums',
+      price: 10,
+      image: 'data:image/jpeg;base64,dGVzdA=='
+    })
   });
   assert.equal(created.status, 201);
   assert.equal((await created.json()).product.name, 'Parfum test');
@@ -71,11 +76,45 @@ test('catalogue API requires admin access, persists locally in tests, and report
     assert.equal(imported.status, 200);
   }
 
+  const noPhoto = await fetch(`${baseUrl}/api/products`, {
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify({
+      name: 'Parfum sans photo',
+      categoryId: 'parfums',
+      price: 15,
+      image: 'data:image/jpeg;base64,'
+    })
+  });
+  assert.equal(noPhoto.status, 201);
+
   const catalogue = await fetch(`${baseUrl}/api/products`);
   assert.equal(catalogue.headers.get('cache-control'), 'no-store');
   const result = await catalogue.json();
-  assert.equal(result.products.length, 2);
+  assert.equal(result.products.length, 3);
+  assert.equal(result.products[0].image, undefined);
+  assert.equal(result.products[0].imageUrl, '/api/products/1/image');
   assert.equal(result.products[1].name, 'Produit importé');
+  assert.equal(result.products[2].imageUrl, null);
+
+  const adminCatalogue = await fetch(`${baseUrl}/api/products?includeImages=true`);
+  const adminProducts = await adminCatalogue.json();
+  assert.equal(adminProducts.products[0].image, 'data:image/jpeg;base64,dGVzdA==');
+
+  const image = await fetch(`${baseUrl}/api/products/1/image`);
+  assert.equal(image.status, 200);
+  assert.match(image.headers.get('content-type'), /image\/jpeg/);
+  assert.equal(Buffer.from(await image.arrayBuffer()).toString(), 'test');
+  assert.equal((await fetch(`${baseUrl}/api/products/3/image`)).status, 404);
+
+  const updated = await fetch(`${baseUrl}/api/products/1`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify({ name: 'Parfum test', categoryId: 'parfums', price: 10, stock: false })
+  });
+  assert.equal(updated.status, 200);
+  const preservedImage = await fetch(`${baseUrl}/api/products/1/image`);
+  assert.equal(preservedImage.status, 200);
 
   process.env.NODE_ENV = 'production';
   const blockedWrite = await fetch(`${baseUrl}/api/products`, {

@@ -11,8 +11,6 @@ window.CATALOGUE_PAGE = true;
 
 const categoryId = window.CATALOGUE_CATEGORY;
 const PAGE_SIZE = 24;
-const PRICE_LIMITS = { parfums:70000, brumes:70000, huiles:70000, soins:65000, capillaires:50000, coffrets:65000, accessoires:30000, thiouraye:50000 };
-
 const urlParams = new URLSearchParams(window.location.search);
 
 let filters = {
@@ -21,13 +19,12 @@ let filters = {
   onlyNew: false,
   onlyPromo: false,
   onlyStock: false,
-  sort: "popularite"
+  sort: "nouveautes"
 };
 let visibleCount = PAGE_SIZE;
 
 const allInCategory = getProductsByCategory(categoryId);
-const maxPriceInCategory = allInCategory.reduce((max, p) => Math.max(max, p.price), 0);
-const priceLimit = PRICE_LIMITS[categoryId] || maxPriceInCategory || 80000;
+const priceLimit = getCategoryMaxPrice(categoryId) || 80000;
 filters.maxPrice = priceLimit;
 
 function getFilteredProducts(){
@@ -46,7 +43,7 @@ function getFilteredProducts(){
   switch (filters.sort){
     case "prix-asc": list.sort((a,b) => a.price - b.price); break;
     case "prix-desc": list.sort((a,b) => b.price - a.price); break;
-    case "nouveautes": list.sort((a,b) => (b.badge === "nouveau") - (a.badge === "nouveau") || b.id - a.id); break;
+    case "nouveautes": list.sort((a,b) => Number(b.id) - Number(a.id)); break;
     default: list.sort((a,b) => b.popularity - a.popularity);
   }
   return list;
@@ -79,7 +76,7 @@ function renderCatalogue(){
 }
 
 function resetFilters(){
-  filters = { search:"", maxPrice: priceLimit, onlyNew:false, onlyPromo:false, onlyStock:false, sort:"popularite" };
+  filters = { search:"", maxPrice: priceLimit, onlyNew:false, onlyPromo:false, onlyStock:false, sort:"nouveautes" };
   visibleCount = PAGE_SIZE;
   document.getElementById("catalogueSearch").value = "";
   document.getElementById("filterNew").checked = false;
@@ -88,7 +85,7 @@ function resetFilters(){
   document.getElementById("maxPrice").max = filters.maxPrice;
   document.getElementById("maxPrice").value = filters.maxPrice;
   document.getElementById("maxPriceValue").textContent = formatPrice(filters.maxPrice);
-  document.getElementById("sortSelect").value = "popularite";
+  document.getElementById("sortSelect").value = "nouveautes";
   renderCatalogue();
 }
 
@@ -118,6 +115,7 @@ window.applyHeaderSearch = function(term){
    INITIALISATION DE LA PAGE
    ========================================================================== */
 document.getElementById("catalogueSearch").value = filters.search;
+document.getElementById("sortSelect").value = filters.sort;
 document.getElementById("maxPrice").max = filters.maxPrice;
 document.getElementById("maxPrice").value = filters.maxPrice;
 document.getElementById("maxPriceValue").textContent = formatPrice(filters.maxPrice);

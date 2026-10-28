@@ -136,9 +136,10 @@ function editProduct(product) {
   byId("productOldPrice").value = product.oldPrice || "";
   byId("productReference").value = product.reference || "";
   byId("productDescription").value = product.description || "";
-  byId("productImage").value = product.image || "";
+  byId("productImage").value = product.image || product.imageUrl || "";
   byId("productImageFile").value = "";
-  byId("imagePreview").innerHTML = product.image ? '<img src="' + escapeHtml(product.image) + '" alt="Aperçu du produit">' : "<span>Aucune photo sélectionnée</span>";
+  const image = product.image || product.imageUrl;
+  byId("imagePreview").innerHTML = image ? '<img src="' + escapeHtml(image) + '" alt="Aperçu du produit">' : "<span>Aucune photo sélectionnée</span>";
   byId("productBadge").value = product.badge || "";
   byId("productPopularity").value = product.popularity || 50;
   byId("productStock").checked = product.stock !== false;
@@ -165,10 +166,10 @@ function renderProducts() {
     return;
   }
   list.innerHTML = filtered.map(product => {
-    const image = product.image || "assets/logo-ramas-parfumerie.png";
+    const image = product.image || product.imageUrl || "assets/logo-ramas-parfumerie.png";
     const badge = product.badge ? '<span class="admin-badge ' + (product.badge === "promotion" ? "promo" : "") + '">' + (product.badge === "promotion" ? "Promotion" : "Nouveau") + '</span>' : '';
     return '<article class="admin-product-row">'
-      + '<img class="admin-product-thumb" src="' + escapeHtml(image) + '" alt="">'
+      + '<img class="admin-product-thumb" src="' + escapeHtml(image) + '" alt="" loading="lazy">'
       + '<div class="admin-product-main"><strong>' + escapeHtml(product.name) + badge + '</strong><span>' + escapeHtml(categoryName(product.categoryId)) + ' · ' + escapeHtml(product.reference || "Sans référence") + '</span></div>'
       + '<div class="admin-product-price">' + adminFormatPrice(product.price) + (product.oldPrice ? '<span class="admin-product-meta">Ancien prix : ' + adminFormatPrice(product.oldPrice) + '</span>' : '') + '</div>'
       + '<div class="admin-product-status ' + (product.stock ? '' : 'is-out') + '">' + (product.stock ? "En stock" : "Rupture de stock") + '</div>'
@@ -183,7 +184,7 @@ function saveLocalCatalog() {
 }
 async function loadProducts() {
   try {
-    const response = await fetch(apiUrl("/api/products"));
+    const response = await fetch(apiUrl("/api/products" + (localDevelopment ? "?includeImages=true" : "")));
     if (!response.ok) throw new Error("API indisponible");
     const payload = await response.json();
     managedProducts = payload.managed;
@@ -228,9 +229,44 @@ async function ensureManagedProducts() {
 function readSelectedImage() {
   const file = byId("productImageFile").files[0];
   if (!file) return Promise.resolve(byId("productImage").value.trim());
+  return optimizeImage(file);
+}
+async function optimizeImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => {
+      const source = new Image();
+      source.onload = () => {
+        if (!source.naturalWidth || !source.naturalHeight) {
+          reject(new Error("Cette photo ne contient pas de dimensions utilisables."));
+          return;
+        }
+        const scale = Math.min(1, 1200 / Math.max(source.naturalWidth, source.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(source.naturalWidth * scale);
+        canvas.height = Math.round(source.naturalHeight * scale);
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Impossible d’optimiser cette photo."));
+          return;
+        }
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (!blob) {
+            reject(new Error("Impossible d’optimiser cette photo."));
+            return;
+          }
+          const optimized = new FileReader();
+          optimized.onload = () => resolve(optimized.result);
+          optimized.onerror = () => reject(new Error("Impossible de lire la photo optimisée."));
+          optimized.readAsDataURL(blob);
+        }, "image/jpeg", 0.8);
+      };
+      source.onerror = () => reject(new Error("Impossible d’ouvrir cette photo."));
+      source.src = reader.result;
+    };
     reader.onerror = () => reject(new Error("Impossible de lire la photo sélectionnée."));
     reader.readAsDataURL(file);
   });
@@ -247,10 +283,10 @@ async function formProduct() {
 }
 byId("productForm").addEventListener("submit", async event => {
   event.preventDefault(); setFormError("");
-  const payload = await formProduct();
-  if (!payload.name || !payload.categoryId || !payload.price || payload.price <= 0) { setFormError("Le nom, la famille et un prix valide sont obligatoires."); return; }
-  const url = apiUrl(editingId ? "/api/products/" + editingId : "/api/products");
   try {
+    const payload = await formProduct();
+    if (!payload.name || !payload.categoryId || !payload.price || payload.price <= 0) { setFormError("Le nom, la famille et un prix valide sont obligatoires."); return; }
+    const url = apiUrl(editingId ? "/api/products/" + editingId : "/api/products");
     await ensureManagedProducts();
     if (localCatalog) {
       const nextId = products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;

@@ -78,6 +78,7 @@ function requirePersistentStore(_req, res, next) {
 function normalizeProduct(input, id) {
   const price = Number(input.price);
   const oldPrice = input.oldPrice === '' || input.oldPrice == null ? null : Number(input.oldPrice);
+  const image = typeof input.image === 'string' ? input.image.trim() : undefined;
   return {
     id: id == null ? null : id,
     name: String(input.name || '').trim(),
@@ -88,7 +89,7 @@ function normalizeProduct(input, id) {
     stock: input.stock !== false,
     badge: ['nouveau', 'promotion'].includes(input.badge) ? input.badge : null,
     reference: String(input.reference || '').trim(),
-    image: String(input.image || '').trim(),
+    image: image && /^\/api\/products\/\d+\/image$/.test(image) ? undefined : image,
     featured: input.featured === true,
     popularity: Number(input.popularity) || 50
   };
@@ -96,7 +97,18 @@ function normalizeProduct(input, id) {
 
 app.get('/api/products', async (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json(await productStore.list());
+  res.json(await productStore.list(_req.query.includeImages === 'true'));
+});
+
+app.get('/api/products/:id/image', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).end();
+  const image = await productStore.getImage(id);
+  if (!image) return res.status(404).end();
+  const match = image.match(/^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/i);
+  if (!match) return res.status(404).end();
+  res.set('Cache-Control', 'public, max-age=300');
+  res.type(match[1]).send(Buffer.from(match[2], 'base64'));
 });
 
 app.put('/api/products', requireAdmin, requirePersistentStore, async (req, res) => {
