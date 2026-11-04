@@ -47,3 +47,55 @@ test('storefront loads shared products asynchronously and uses their photo', asy
   assert.match(vm.runInContext('productImage({ name: "Sans photo", reference: "TEST" })', context), /^data:image\/svg\+xml/);
   assert.match(vm.runInContext('productImage({ name: "Photo invalide", image: "data:image/jpeg;base64," })', context), /^data:image\/svg\+xml/);
 });
+
+test('storefront never substitutes generated demo products when the shared catalog is unmanaged', async () => {
+  const context = vm.createContext({
+    window: {},
+    location: { hostname: 'aaguisse.github.io' },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ managed: false, persistent: true, products: [] })
+    }),
+    localStorage: { getItem: () => null },
+    console
+  });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  vm.runInContext(source, context);
+  assert.equal(context.window.STORE_PRODUCTS.length, 0);
+  await context.window.STORE_PRODUCTS_READY;
+
+  assert.deepEqual(Array.from(context.window.STORE_PRODUCTS), []);
+  assert.match(context.window.STORE_PRODUCTS_ERROR, /Aucun produit de démonstration/);
+});
+
+test('storefront stays empty and reports an error when the shared catalog is unreachable', async () => {
+  const context = vm.createContext({
+    window: {},
+    location: { hostname: 'aaguisse.github.io' },
+    fetch: async () => { throw new Error('network unavailable'); },
+    localStorage: { getItem: () => null },
+    console: { error() {} }
+  });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  vm.runInContext(source, context);
+  await context.window.STORE_PRODUCTS_READY;
+
+  assert.deepEqual(Array.from(context.window.STORE_PRODUCTS), []);
+  assert.match(context.window.STORE_PRODUCTS_ERROR, /temporairement indisponible/);
+});
+
+test('every page that loads the storefront data uses the database-only asset version', () => {
+  const pages = fs.readdirSync(path.join(__dirname, '..')).filter(file => file.endsWith('.html'));
+  const storefrontPages = pages.filter(file => {
+    const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    return html.includes('assets/data.js');
+  });
+
+  assert.ok(storefrontPages.length > 0);
+  for (const page of storefrontPages) {
+    const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
+    assert.match(html, /assets\/data\.js\?v=20261104-db-only-1/, page);
+  }
+});
