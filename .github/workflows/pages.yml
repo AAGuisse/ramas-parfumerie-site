@@ -3,6 +3,9 @@ name: Deploy static site to GitHub Pages
 on:
   push:
     branches: [main, master]
+  # GitHub cron is UTC; Senegal is UTC+0.
+  schedule:
+    - cron: "0 8 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -65,6 +68,22 @@ jobs:
             --exclude='.env*' \
             --exclude='products.json' \
             "${{ steps.site.outputs.path }}/" _site/
+
+      - name: Verify the shared persistent catalog
+        shell: bash
+        env:
+          PRODUCT_API_URL: https://ramas-parfumerie-app.onrender.com/api/products
+        run: |
+          set -euo pipefail
+          catalog="$(curl --fail --silent --show-error \
+            --retry 5 --retry-delay 15 --retry-all-errors \
+            --connect-timeout 10 --max-time 90 \
+            "$PRODUCT_API_URL")"
+          printf '%s' "$catalog" | jq --exit-status \
+            '.managed == true and .persistent == true and (.products | type == "array")' \
+            >/dev/null
+          product_count="$(printf '%s' "$catalog" | jq '.products | length')"
+          echo "Verified $product_count products from the managed persistent catalog."
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3

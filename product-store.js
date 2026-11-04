@@ -260,56 +260,43 @@ async function create(product) {
 async function importProducts(entries) {
   if (!pool) {
     const products = readFileProducts() || [];
+    let importedCount = 0;
     for (const entry of entries) {
       const index = products.findIndex(product => product.importKey === entry.importKey);
-      const id = index >= 0
-        ? products[index].id
-        : products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
-      const previousVersion = index >= 0 ? Number(products[index].imageVersion) || 1 : 0;
-      const imageChanged = index >= 0 && products[index].image !== entry.product.image;
-      const changedFields = [
-        'name', 'categoryId', 'description', 'price', 'oldPrice', 'stock',
-        'badge', 'reference', 'image', 'featured', 'popularity'
-      ];
-      const productChanged = index >= 0 && changedFields.some(field => products[index][field] !== entry.product[field]);
-      const imported = {
+      if (index >= 0) continue;
+
+      const id = products.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+      products.push({
         ...entry.product,
         id,
         importKey: entry.importKey,
-        imageVersion: index < 0 ? 1 : previousVersion + (imageChanged ? 1 : 0),
-        revision: index < 0 ? 1 : (Number(products[index].revision) || 1) + (productChanged ? 1 : 0)
-      };
-      if (index >= 0) products[index] = imported;
-      else products.push(imported);
+        imageVersion: 1,
+        revision: 1
+      });
+      importedCount += 1;
     }
     writeFileProducts(products);
-    return entries.length;
+    return importedCount;
   }
 
   await initialize();
   return withTransaction(async client => {
+    let importedCount = 0;
     for (const { product, importKey } of entries) {
-      await client.query(
+      const result = await client.query(
         `INSERT INTO products (import_key, name, category_id, description, price, old_price, stock, badge, reference, image, featured, popularity)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         ON CONFLICT (import_key) DO UPDATE
-         SET name = EXCLUDED.name, category_id = EXCLUDED.category_id,
-             description = EXCLUDED.description, price = EXCLUDED.price,
-             old_price = EXCLUDED.old_price, stock = EXCLUDED.stock,
-             badge = EXCLUDED.badge, reference = EXCLUDED.reference,
-             image = EXCLUDED.image, featured = EXCLUDED.featured,
-             popularity = EXCLUDED.popularity,
-             image_version = products.image_version + CASE WHEN products.image IS DISTINCT FROM EXCLUDED.image THEN 1 ELSE 0 END,
-             revision = products.revision + CASE WHEN ROW(products.name, products.category_id, products.description, products.price, products.old_price, products.stock, products.badge, products.reference, products.image, products.featured, products.popularity) IS DISTINCT FROM ROW(EXCLUDED.name, EXCLUDED.category_id, EXCLUDED.description, EXCLUDED.price, EXCLUDED.old_price, EXCLUDED.stock, EXCLUDED.badge, EXCLUDED.reference, EXCLUDED.image, EXCLUDED.featured, EXCLUDED.popularity) THEN 1 ELSE 0 END`,
+         ON CONFLICT (import_key) DO NOTHING`,
         [
           importKey, product.name, product.categoryId, product.description,
           product.price, product.oldPrice, product.stock, product.badge,
           product.reference, product.image || '', product.featured, product.popularity
         ]
       );
+      importedCount += result.rowCount;
     }
     await client.query('UPDATE catalog_settings SET managed = TRUE WHERE id = 1');
-    return entries.length;
+    return importedCount;
   });
 }
 

@@ -27,7 +27,7 @@ test('storefront loads shared products asynchronously and uses their photo', asy
       assert.equal(options.cache, 'no-store');
       return {
         ok: true,
-        json: async () => ({ managed: true, products: [olderProduct, product] })
+        json: async () => ({ managed: true, persistent: true, products: [olderProduct, product] })
       };
     },
     localStorage: { getItem: () => null },
@@ -69,6 +69,26 @@ test('storefront never substitutes generated demo products when the shared catal
   assert.match(context.window.STORE_PRODUCTS_ERROR, /Aucun produit de démonstration/);
 });
 
+test('storefront rejects products unless the shared catalog is persistent', async () => {
+  const context = vm.createContext({
+    window: {},
+    location: { hostname: 'aaguisse.github.io' },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ managed: true, persistent: false, products: [{ id: 1 }] })
+    }),
+    localStorage: { getItem: () => null },
+    console
+  });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  vm.runInContext(source, context);
+  await context.window.STORE_PRODUCTS_READY;
+
+  assert.deepEqual(Array.from(context.window.STORE_PRODUCTS), []);
+  assert.match(context.window.STORE_PRODUCTS_ERROR, /n’est pas activé ou n’est pas persistant/);
+});
+
 test('storefront stays empty and reports an error when the shared catalog is unreachable', async () => {
   const context = vm.createContext({
     window: {},
@@ -96,6 +116,14 @@ test('every page that loads the storefront data uses the database-only asset ver
   assert.ok(storefrontPages.length > 0);
   for (const page of storefrontPages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
-    assert.match(html, /assets\/data\.js\?v=20261104-db-only-1/, page);
+    assert.match(html, /assets\/data\.js\?v=20261104-db-only-2/, page);
   }
+});
+
+test('Pages verifies the persistent database catalog every Sunday at 08:00 UTC', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'pages.yml'), 'utf8');
+
+  assert.match(workflow, /cron: "0 8 \* \* 0"/);
+  assert.match(workflow, /\.managed == true and \.persistent == true/);
+  assert.match(workflow, /api\/products/);
 });

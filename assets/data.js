@@ -58,9 +58,9 @@ window.STORE_PRODUCTS_READY = (async function(){
       if (!response.ok) throw new Error("Réponse API " + response.status);
       const payload = await response.json();
       if (!payload || !Array.isArray(payload.products)) throw new Error("Catalogue API invalide");
-      PRODUCTS = payload.managed ? payload.products : [];
-      if (!payload.managed) {
-        window.STORE_PRODUCTS_ERROR = "Le catalogue partagé n’est pas encore activé. Aucun produit de démonstration n’est affiché.";
+      PRODUCTS = payload.managed === true && payload.persistent === true ? payload.products : [];
+      if (payload.managed !== true || payload.persistent !== true) {
+        window.STORE_PRODUCTS_ERROR = "Le catalogue partagé n’est pas activé ou n’est pas persistant. Aucun produit de démonstration n’est affiché.";
       }
     } catch (error) {
       console.error("Chargement du catalogue partagé impossible :", error);

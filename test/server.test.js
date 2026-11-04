@@ -69,14 +69,34 @@ test('catalogue API requires admin access, persists locally in tests, and report
     categoryId: 'soins',
     price: 12
   }];
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const imported = await fetch(`${baseUrl}/api/products/import`, {
-      method: 'POST',
-      headers: adminHeaders(),
-      body: JSON.stringify(importBody)
-    });
-    assert.equal(imported.status, 200);
-  }
+  const imported = await fetch(`${baseUrl}/api/products/import`, {
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify(importBody)
+  });
+  assert.equal(imported.status, 200);
+  assert.equal((await imported.json()).count, 1);
+
+  const editedImport = await fetch(`${baseUrl}/api/products/2`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify({
+      name: 'Produit corrigé par l’administratrice',
+      categoryId: 'soins',
+      price: 12,
+      revision: 1
+    })
+  });
+  assert.equal(editedImport.status, 200);
+  assert.equal((await editedImport.json()).product.revision, 2);
+
+  const retriedImport = await fetch(`${baseUrl}/api/products/import`, {
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify(importBody)
+  });
+  assert.equal(retriedImport.status, 200);
+  assert.equal((await retriedImport.json()).count, 0);
 
   const noPhoto = await fetch(`${baseUrl}/api/products`, {
     method: 'POST',
@@ -96,12 +116,14 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(result.products.length, 3);
   assert.equal(result.products[0].image, undefined);
   assert.equal(result.products[0].imageUrl, '/api/products/1/image?v=1');
-  assert.equal(result.products[1].name, 'Produit importé');
+  assert.equal(result.products[1].name, 'Produit corrigé par l’administratrice');
+  assert.equal(result.products[1].revision, 2);
   assert.equal(result.products[2].imageUrl, null);
 
   const adminCatalogue = await fetch(`${baseUrl}/api/products?includeImages=true`);
   const adminProducts = await adminCatalogue.json();
   assert.equal(adminProducts.products[0].image, 'data:image/jpeg;base64,dGVzdA==');
+  assert.equal(adminProducts.products[1].name, 'Produit corrigé par l’administratrice');
 
   const image = await fetch(`${baseUrl}/api/products/1/image`);
   assert.equal(image.status, 200);
