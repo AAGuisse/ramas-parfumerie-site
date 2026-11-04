@@ -51,21 +51,66 @@ function hashCode(str){
 let PRODUCTS = [];
 window.STORE_PRODUCTS = PRODUCTS;
 window.STORE_PRODUCTS_ERROR = null;
-window.STORE_PRODUCTS_READY = (async function(){
-  if (window.STORE_API_BASE) {
-    try {
-      const response = await fetch(window.STORE_API_BASE + "/api/products", { cache: "no-store" });
-      if (!response.ok) throw new Error("Réponse API " + response.status);
-      const payload = await response.json();
-      if (!payload || !Array.isArray(payload.products)) throw new Error("Catalogue API invalide");
-      PRODUCTS = payload.managed === true && payload.persistent === true ? payload.products : [];
-      if (payload.managed !== true || payload.persistent !== true) {
-        window.STORE_PRODUCTS_ERROR = "Le catalogue partagé n’est pas activé ou n’est pas persistant. Aucun produit de démonstration n’est affiché.";
-      }
-    } catch (error) {
+let refreshInProgress = false;
+
+function notifyProductsUpdated(){
+  if (typeof window.dispatchEvent === "function") {
+    window.dispatchEvent(new Event("store-products-updated"));
+  }
+}
+
+async function refreshStoreProducts({ initial = false } = {}) {
+  if (!window.STORE_API_BASE || refreshInProgress) return false;
+  refreshInProgress = true;
+  try {
+    const response = await fetch(window.STORE_API_BASE + "/api/products", { cache: "no-store" });
+    if (!response.ok) throw new Error("Réponse API " + response.status);
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.products)) throw new Error("Catalogue API invalide");
+    if (payload.persistent !== true) throw new Error("Base partagée indisponible");
+
+    const nextProducts = payload.managed === true ? payload.products : [];
+    const changed = JSON.stringify(PRODUCTS) !== JSON.stringify(nextProducts);
+    const previousError = window.STORE_PRODUCTS_ERROR;
+    PRODUCTS = nextProducts;
+    window.STORE_PRODUCTS = PRODUCTS;
+    window.STORE_PRODUCTS_ERROR = payload.managed === true
+      ? null
+      : "Le catalogue partagé n’est pas activé. Aucun produit de démonstration n’est affiché.";
+    if (changed || previousError !== window.STORE_PRODUCTS_ERROR) notifyProductsUpdated();
+    return true;
+  } catch (error) {
+    if (initial) {
       console.error("Chargement du catalogue partagé impossible :", error);
       PRODUCTS = [];
-      window.STORE_PRODUCTS_ERROR = "Le catalogue est temporairement indisponible. Rechargez cette page dans quelques instants.";
+      window.STORE_PRODUCTS = PRODUCTS;
+      window.STORE_PRODUCTS_ERROR = error.message === "Base partagée indisponible"
+        ? "Le catalogue partagé n’est pas activé ou n’est pas persistant. Aucun produit de démonstration n’est affiché."
+        : "Le catalogue est temporairement indisponible. Rechargez cette page dans quelques instants.";
+    } else {
+      const previousError = window.STORE_PRODUCTS_ERROR;
+      window.STORE_PRODUCTS_ERROR = "La synchronisation est temporairement indisponible. Les produits affichés peuvent ne pas être à jour.";
+      if (previousError !== window.STORE_PRODUCTS_ERROR) notifyProductsUpdated();
+    }
+    return false;
+  } finally {
+    refreshInProgress = false;
+  }
+}
+
+window.STORE_PRODUCTS_READY = (async function(){
+  if (window.STORE_API_BASE) {
+    await refreshStoreProducts({ initial:true });
+    window.refreshStoreProducts = refreshStoreProducts;
+    if (typeof window.setInterval === "function" && typeof document !== "undefined") {
+      window.setInterval(() => {
+        if (!document.hidden) return refreshStoreProducts();
+      }, 5000);
+      if (typeof document.addEventListener === "function") {
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) return refreshStoreProducts();
+        });
+      }
     }
   } else {
     try {

@@ -50,6 +50,6 @@ test('category pages do not display available product counts', () => {
   for (const page of pages) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.doesNotMatch(html, /family-count|familyProductCount/, page);
-    assert.match(html, /assets\/catalogue\.js\?v=20261104-hide-count-price-2/, page);
+    assert.match(html, /assets\/catalogue\.js\?v=20261104-live-sync-1/, page);
   }
 });

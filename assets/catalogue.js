@@ -22,10 +22,8 @@ let filters = {
 };
 let visibleCount = PAGE_SIZE;
 
-const allInCategory = getProductsByCategory(categoryId);
-
 function getFilteredProducts(){
-  let list = allInCategory.filter(p => {
+  let list = getProductsByCategory(categoryId).filter(p => {
     if (filters.onlyNew && p.badge !== "nouveau") return false;
     if (filters.onlyPromo && p.badge !== "promotion") return false;
     if (filters.onlyStock && !p.stock) return false;
@@ -102,6 +100,7 @@ window.applyHeaderSearch = function(term){
 document.getElementById("catalogueSearch").value = filters.search;
 document.getElementById("sortSelect").value = filters.sort;
 renderCatalogue();
+window.addEventListener("store-products-updated", renderCatalogue);
 
 })();
 });

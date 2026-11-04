@@ -8,13 +8,23 @@ window.STORE_PRODUCTS_READY.then(function(){
 (function(){
 "use strict";
 
-if (window.STORE_PRODUCTS_ERROR) {
-  const notice = document.createElement("div");
-  notice.setAttribute("role", "alert");
+function updateStoreNotice(){
+  let notice = document.getElementById("storeSyncNotice");
+  if (!window.STORE_PRODUCTS_ERROR) {
+    if (notice) notice.remove();
+    return;
+  }
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.id = "storeSyncNotice";
+    notice.setAttribute("role", "alert");
+    notice.style.cssText = "position:relative;z-index:1000;padding:12px 20px;background:#fff3cd;color:#664d03;text-align:center";
+    document.body.prepend(notice);
+  }
   notice.textContent = window.STORE_PRODUCTS_ERROR;
-  notice.style.cssText = "position:relative;z-index:1000;padding:12px 20px;background:#fff3cd;color:#664d03;text-align:center";
-  document.body.prepend(notice);
 }
+updateStoreNotice();
+window.addEventListener("store-products-updated", updateStoreNotice);
 
 /* Stockage du panier : localStorage si disponible, sinon mémoire. Le panier
    est commun à toutes les pages puisqu'il utilise localStorage. */

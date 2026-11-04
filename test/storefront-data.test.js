@@ -89,6 +89,49 @@ test('storefront rejects products unless the shared catalog is persistent', asyn
   assert.match(context.window.STORE_PRODUCTS_ERROR, /n’est pas activé ou n’est pas persistant/);
 });
 
+test('storefront automatically refreshes an open page when the shared catalog changes', async () => {
+  const firstProduct = { id: 1, name: 'Produit initial', categoryId: 'parfums' };
+  const updatedProduct = { id: 1, name: 'Produit modifié', categoryId: 'parfums' };
+  const responses = [firstProduct, updatedProduct];
+  let intervalCallback;
+  const events = [];
+  const context = vm.createContext({
+    window: {
+      setInterval: (callback, delay) => {
+        assert.equal(delay, 5000);
+        intervalCallback = callback;
+      },
+      dispatchEvent: event => events.push(event.type)
+    },
+    document: {
+      hidden: false,
+      addEventListener: () => {}
+    },
+    Event,
+    location: { hostname: 'aaguisse.github.io' },
+    fetch: async (_url, options) => {
+      assert.equal(options.cache, 'no-store');
+      return {
+        ok: true,
+        json: async () => ({ managed: true, persistent: true, products: [responses.shift()] })
+      };
+    },
+    localStorage: { getItem: () => null },
+    console
+  });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  vm.runInContext(source, context);
+  await context.window.STORE_PRODUCTS_READY;
+  assert.equal(context.window.STORE_PRODUCTS[0].name, firstProduct.name);
+  assert.equal(typeof intervalCallback, 'function');
+
+  await intervalCallback();
+
+  assert.equal(context.window.STORE_PRODUCTS[0].name, updatedProduct.name);
+  assert.ok(events.includes('store-products-updated'));
+});
+
 test('storefront stays empty and reports an error when the shared catalog is unreachable', async () => {
   const context = vm.createContext({
     window: {},
@@ -116,7 +159,7 @@ test('every page that loads the storefront data uses the database-only asset ver
   assert.ok(storefrontPages.length > 0);
   for (const page of storefrontPages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
-    assert.match(html, /assets\/data\.js\?v=20261104-db-only-2/, page);
+    assert.match(html, /assets\/data\.js\?v=20261104-live-sync-1/, page);
   }
 });
 

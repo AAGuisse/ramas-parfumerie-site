@@ -13,6 +13,7 @@ function renderNewArrivals(){ renderRow("newArrivalsRow", getNewestProducts(12))
 document.getElementById("heroImage").src = "assets/logo-ramas-hero.png";
 document.getElementById("heroImage").alt = "Logo de Rama's Parfumerie";
 renderNewArrivals();
+window.addEventListener("store-products-updated", renderNewArrivals);
 
 })();
 });
