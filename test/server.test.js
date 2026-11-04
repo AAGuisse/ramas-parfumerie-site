@@ -35,11 +35,40 @@ function adminHeaders(username = process.env.ADMIN_USER) {
 test('catalogue API requires admin access, persists locally in tests, and reports database readiness', async () => {
   const health = await fetch(`${baseUrl}/api/health`);
   assert.equal(health.status, 200);
+  assert.equal(health.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(health.headers.get('x-frame-options'), 'DENY');
+  assert.equal(health.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.equal(health.headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
+  assert.equal(health.headers.get('x-powered-by'), null);
   assert.deepEqual(await health.json(), {
     ok: true,
     status: 'server-running',
     persistentProducts: false
   });
+
+  const storefrontPreflight = await fetch(`${baseUrl}/api/products`, {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://aaguisse.github.io' }
+  });
+  assert.equal(storefrontPreflight.status, 204);
+  assert.equal(storefrontPreflight.headers.get('access-control-allow-origin'), 'https://aaguisse.github.io');
+
+  const rejectedPreflight = await fetch(`${baseUrl}/api/products`, {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://untrusted.example' }
+  });
+  assert.equal(rejectedPreflight.status, 403);
+  assert.equal(rejectedPreflight.headers.get('access-control-allow-origin'), null);
+
+  const rejectedCrossOriginWrite = await fetch(`${baseUrl}/api/products`, {
+    method: 'POST',
+    headers: {
+      Origin: 'https://untrusted.example',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name: 'Test', categoryId: 'parfums', price: 10 })
+  });
+  assert.equal(rejectedCrossOriginWrite.status, 403);
 
   const unauthorized = await fetch(`${baseUrl}/api/products`, {
     method: 'POST',

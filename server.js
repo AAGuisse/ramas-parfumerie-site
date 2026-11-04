@@ -21,13 +21,35 @@ const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const TO_EMAIL = process.env.TO_EMAIL || 'niangramatoulaye4@gmail.com';
 
+app.disable('x-powered-by');
+const allowedOrigins = new Set(['https://aaguisse.github.io']);
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const origin = req.get('Origin');
+  const isLocalOrigin = origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  const isAllowedOrigin = origin && (allowedOrigins.has(origin) || isLocalOrigin);
+  if (origin) res.vary('Origin');
+  if (isAllowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  } else if (req.method === 'OPTIONS' || (origin && !['GET', 'HEAD'].includes(req.method))) {
+    return res.status(403).json({ ok: false, message: 'Origine de requête non autorisée.' });
+  }
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -220,10 +242,20 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
+}
+
 app.post('/api/newsletter', async (req, res) => {
   const email = (req.body && (req.body.email || req.body.Email)) || '';
 
-  if (!isValidEmail(email)) {
+  if (!isValidEmail(email) || String(email).length > 254) {
     return res.status(400).json({ ok: false, message: 'Adresse e-mail invalide.' });
   }
 
@@ -259,7 +291,7 @@ app.post('/api/newsletter', async (req, res) => {
       ].join('\n'),
       html: `
         <h3>Nouvelle inscription newsletter</h3>
-        <p><strong>Email :</strong> ${email}</p>
+        <p><strong>Email :</strong> ${escapeHtml(email)}</p>
         <p>Merci.</p>
       `,
     });
