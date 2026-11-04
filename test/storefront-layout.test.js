@@ -28,3 +28,25 @@ test('all category price filters support arbitrary positive prices without a hid
     assert.match(html, /id="maxPrice" min="0" step="1"/, page);
   }
 });
+
+test('category pages do not display available product counts', () => {
+  const pages = [
+    'produits-accessoires.html',
+    'produits-brumes.html',
+    'produits-capillaires.html',
+    'produits-coffrets.html',
+    'produits-huiles.html',
+    'produits-parfums.html',
+    'produits-soins.html',
+    'produits-thiouraye.html'
+  ];
+  const catalogue = fs.readFileSync(path.join(root, 'assets', 'catalogue.js'), 'utf8');
+
+  assert.doesNotMatch(catalogue, /familyProductCount|load-more-count|produits affichés|au total dans cette famille/);
+  assert.match(catalogue, /Charger plus de produits/);
+  for (const page of pages) {
+    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    assert.doesNotMatch(html, /family-count|familyProductCount/, page);
+    assert.match(html, /assets\/catalogue\.js\?v=20261104-hide-count-1/, page);
+  }
+});

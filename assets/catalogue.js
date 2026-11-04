@@ -63,15 +63,13 @@ function renderCatalogue(){
   container.innerHTML = '<div class="product-grid">' + shown.map(productCardHtml).join("") + '</div>';
 
   if (shown.length < results.length){
-    loadMoreRow.innerHTML =
-      '<span class="load-more-count">' + shown.length + ' sur ' + results.length + ' produits affichés</span>'
-      + '<button class="btn btn-secondary" id="loadMoreBtn" type="button">Charger plus de produits</button>';
+    loadMoreRow.innerHTML = '<button class="btn btn-secondary" id="loadMoreBtn" type="button">Charger plus de produits</button>';
     document.getElementById("loadMoreBtn").addEventListener("click", () => {
       visibleCount += PAGE_SIZE;
       renderCatalogue();
     });
   } else {
-    loadMoreRow.innerHTML = '<span class="load-more-count">' + results.length + ' produit' + (results.length > 1 ? 's' : '') + ' au total dans cette famille</span>';
+    loadMoreRow.innerHTML = "";
   }
 }
 
@@ -119,7 +117,6 @@ document.getElementById("sortSelect").value = filters.sort;
 document.getElementById("maxPrice").max = filters.maxPrice;
 document.getElementById("maxPrice").value = filters.maxPrice;
 document.getElementById("maxPriceValue").textContent = formatPrice(filters.maxPrice);
-document.getElementById("familyProductCount").textContent = allInCategory.length + " produit" + (allInCategory.length > 1 ? "s" : "");
 renderCatalogue();
 
 })();
