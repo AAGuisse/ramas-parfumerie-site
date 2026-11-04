@@ -15,7 +15,6 @@ const urlParams = new URLSearchParams(window.location.search);
 
 let filters = {
   search: urlParams.get("q") || "",
-  maxPrice: 80000,
   onlyNew: false,
   onlyPromo: false,
   onlyStock: false,
@@ -24,15 +23,12 @@ let filters = {
 let visibleCount = PAGE_SIZE;
 
 const allInCategory = getProductsByCategory(categoryId);
-const priceLimit = getCategoryMaxPrice(categoryId) || 80000;
-filters.maxPrice = priceLimit;
 
 function getFilteredProducts(){
   let list = allInCategory.filter(p => {
     if (filters.onlyNew && p.badge !== "nouveau") return false;
     if (filters.onlyPromo && p.badge !== "promotion") return false;
     if (filters.onlyStock && !p.stock) return false;
-    if (p.price > filters.maxPrice) return false;
     if (filters.search){
       const term = filters.search.toLowerCase();
       const haystack = (p.name + " " + p.description).toLowerCase();
@@ -74,15 +70,12 @@ function renderCatalogue(){
 }
 
 function resetFilters(){
-  filters = { search:"", maxPrice: priceLimit, onlyNew:false, onlyPromo:false, onlyStock:false, sort:"nouveautes" };
+  filters = { search:"", onlyNew:false, onlyPromo:false, onlyStock:false, sort:"nouveautes" };
   visibleCount = PAGE_SIZE;
   document.getElementById("catalogueSearch").value = "";
   document.getElementById("filterNew").checked = false;
   document.getElementById("filterPromo").checked = false;
   document.getElementById("filterStock").checked = false;
-  document.getElementById("maxPrice").max = filters.maxPrice;
-  document.getElementById("maxPrice").value = filters.maxPrice;
-  document.getElementById("maxPriceValue").textContent = formatPrice(filters.maxPrice);
   document.getElementById("sortSelect").value = "nouveautes";
   renderCatalogue();
 }
@@ -92,12 +85,6 @@ document.getElementById("clearSearch").addEventListener("click", () => { filters
 document.getElementById("filterNew").addEventListener("change", (e) => { filters.onlyNew = e.target.checked; visibleCount = PAGE_SIZE; renderCatalogue(); });
 document.getElementById("filterPromo").addEventListener("change", (e) => { filters.onlyPromo = e.target.checked; visibleCount = PAGE_SIZE; renderCatalogue(); });
 document.getElementById("filterStock").addEventListener("change", (e) => { filters.onlyStock = e.target.checked; visibleCount = PAGE_SIZE; renderCatalogue(); });
-document.getElementById("maxPrice").addEventListener("input", (e) => {
-  filters.maxPrice = Number(e.target.value);
-  document.getElementById("maxPriceValue").textContent = formatPrice(filters.maxPrice);
-  visibleCount = PAGE_SIZE;
-  renderCatalogue();
-});
 document.getElementById("sortSelect").addEventListener("change", (e) => { filters.sort = e.target.value; visibleCount = PAGE_SIZE; renderCatalogue(); });
 
 /* Reçoit une recherche envoyée depuis la barre de recherche de l'en-tête. */
@@ -114,9 +101,6 @@ window.applyHeaderSearch = function(term){
    ========================================================================== */
 document.getElementById("catalogueSearch").value = filters.search;
 document.getElementById("sortSelect").value = filters.sort;
-document.getElementById("maxPrice").max = filters.maxPrice;
-document.getElementById("maxPrice").value = filters.maxPrice;
-document.getElementById("maxPriceValue").textContent = formatPrice(filters.maxPrice);
 renderCatalogue();
 
 })();

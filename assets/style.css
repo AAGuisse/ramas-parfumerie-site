@@ -247,8 +247,6 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
 .chip[aria-pressed="true"]{background:var(--clay-deep); color:var(--cream); border-color:var(--clay-deep);}
 .toggle-row{display:flex; gap:18px; flex-wrap:wrap; font-size:0.88rem; align-items:center;}
 .toggle-row label{display:flex; gap:7px; align-items:center; color:var(--ink-soft);}
-.range-field{display:flex; align-items:center; gap:10px; font-size:0.85rem; color:var(--ink-soft);}
-.range-field input[type="range"]{accent-color:var(--clay-deep); width:160px;}
 .sort-field select{
   border:1px solid var(--line); border-radius:999px; padding:9px 34px 9px 16px; background:var(--cream);
 }

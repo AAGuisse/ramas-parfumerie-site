@@ -12,7 +12,7 @@ test('storefront product photos are contained in smaller square cards and bounde
   assert.match(styles, /\.product-modal-media img\{[^}]*height:min\(42vh,360px\);[^}]*object-fit:contain/);
 });
 
-test('all category price filters support arbitrary positive prices without a hidden minimum step', () => {
+test('category pages do not show a maximum-price slider', () => {
   const pages = [
     'produits-accessoires.html',
     'produits-brumes.html',
@@ -23,9 +23,12 @@ test('all category price filters support arbitrary positive prices without a hid
     'produits-soins.html',
     'produits-thiouraye.html'
   ];
+  const catalogue = fs.readFileSync(path.join(root, 'assets', 'catalogue.js'), 'utf8');
+  assert.doesNotMatch(catalogue, /maxPrice|maxPriceValue|priceLimit/);
+
   for (const page of pages) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
-    assert.match(html, /id="maxPrice" min="0" step="1"/, page);
+    assert.doesNotMatch(html, /range-field|maxPrice|maxPriceValue|Prix maximum/, page);
   }
 });
 
@@ -47,6 +50,6 @@ test('category pages do not display available product counts', () => {
   for (const page of pages) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.doesNotMatch(html, /family-count|familyProductCount/, page);
-    assert.match(html, /assets\/catalogue\.js\?v=20261104-hide-count-1/, page);
+    assert.match(html, /assets\/catalogue\.js\?v=20261104-hide-count-price-2/, page);
   }
 });
