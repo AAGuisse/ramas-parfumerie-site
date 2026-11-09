@@ -296,7 +296,7 @@ const staticRoot = fs.existsSync(path.join(__dirname, 'index.html'))
   ? __dirname
   : path.join(__dirname, '..');
 app.get('/admin.html', (req, res, next) => {
-  res.set('X-Admin-Page-Version', 'server-catalog-1');
+  res.set('X-Admin-Page-Version', 'server-catalog-2');
   const host = (req.get('host') || '').toLowerCase().split(':')[0];
   if (host === 'ramas-parfumerie-site.onrender.com') {
     return res.redirect(302, new URL('/admin.html', ADMIN_APP_URL).toString());

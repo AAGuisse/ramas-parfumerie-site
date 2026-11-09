@@ -63,7 +63,7 @@ test('catalogue API requires admin access, persists locally in tests, and report
     headers: { Host: 'ramas-parfumerie-app.onrender.com' }
   });
   assert.equal(unauthenticatedAdmin.status, 401);
-  assert.equal(unauthenticatedAdmin.headers.get('x-admin-page-version'), 'server-catalog-1');
+  assert.equal(unauthenticatedAdmin.headers.get('x-admin-page-version'), 'server-catalog-2');
 
   fs.writeFileSync(process.env.PRODUCTS_FILE, JSON.stringify([{
     id: 9,
