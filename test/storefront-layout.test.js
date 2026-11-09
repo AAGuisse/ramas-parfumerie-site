@@ -12,6 +12,20 @@ test('storefront product photos are contained in smaller square cards and bounde
   assert.match(styles, /\.product-modal-media img\{[^}]*height:min\(42vh,360px\);[^}]*object-fit:contain/);
 });
 
+test('mobile layout keeps the original design while fitting header and checkout controls', () => {
+  const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
+  const mobileHeader = styles.match(/@media \(max-width:640px\)\{([\s\S]*?)\n\}/)?.[1] || '';
+  const mobileControls = styles.match(/@media \(max-width:520px\)\{([\s\S]*?)\n\}/)?.[1] || '';
+
+  assert.match(mobileHeader, /\.logo\{[^}]*min-width:0/);
+  assert.match(mobileHeader, /\.logo-text\{[^}]*text-overflow:ellipsis/);
+  assert.match(mobileHeader, /\.header-actions\{[^}]*flex:0 0 auto/);
+  assert.match(mobileControls, /\.product-actions\{flex-direction:column;\}/);
+  assert.match(mobileControls, /\.checkout-actions\{flex-direction:column;\}/);
+  assert.match(mobileControls, /\.checkout-actions \.btn\{[^}]*white-space:normal/);
+  assert.doesNotMatch(mobileHeader + mobileControls, /background:|color-scheme:|\.hero\{/);
+});
+
 test('category pages do not show a maximum-price slider', () => {
   const pages = [
     'produits-accessoires.html',
