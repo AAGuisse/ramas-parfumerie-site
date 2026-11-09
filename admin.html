@@ -49,6 +49,14 @@
   </div>
 </main>
 <script src="assets/data.js?v=20261109-render-host-1"></script>
-<script src="assets/admin.js?v=20261109-admin-catalog-1"></script>
+<script src="assets/manage-products.js?v=20261109-admin-catalog-2"></script>
+<script>
+window.setTimeout(function(){
+  if (window.ADMIN_CATALOG_READY) return;
+  const notice = document.getElementById("adminNotice");
+  notice.textContent = "Le panneau d’administration ne s’est pas chargé. Autorisez ses scripts dans le navigateur, puis rechargez la page.";
+  notice.classList.add("is-error");
+}, 3000);
+</script>
 </body>
 </html>

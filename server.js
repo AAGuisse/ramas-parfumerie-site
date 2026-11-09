@@ -247,6 +247,10 @@ app.get('/admin.html', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(staticRoot, 'admin.html'));
 });
+app.get('/assets/manage-products.js', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(staticRoot, 'assets', 'admin.js'));
+});
 app.use(express.static(staticRoot));
 
 function isValidEmail(value) {

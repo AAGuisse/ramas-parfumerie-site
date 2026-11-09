@@ -59,6 +59,11 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(storefrontAdmin.statusCode, 302);
   assert.equal(storefrontAdmin.headers.location, 'https://ramas-parfumerie-app.onrender.com/admin.html');
 
+  const adminScriptAlias = await fetch(`${baseUrl}/assets/manage-products.js`);
+  assert.equal(adminScriptAlias.status, 200);
+  assert.match(adminScriptAlias.headers.get('content-type'), /javascript/);
+  assert.match(await adminScriptAlias.text(), /window\.ADMIN_CATALOG_READY = true/);
+
   const storefrontPreflight = await fetch(`${baseUrl}/api/products`, {
     method: 'OPTIONS',
     headers: { Origin: 'https://aaguisse.github.io' }

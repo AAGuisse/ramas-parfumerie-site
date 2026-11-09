@@ -465,6 +465,7 @@ byId("adminFamilyTabs").addEventListener("click", event => {
   renderProducts();
 });
 fillCategorySelects(); resetForm(); loadProducts();
+window.ADMIN_CATALOG_READY = true;
 window.setInterval(() => {
   if (!document.hidden) loadProducts({ background:true });
 }, 5000);
