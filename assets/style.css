@@ -196,10 +196,14 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
   .header-actions{gap:0; flex-shrink:0;}
   .icon-btn{width:38px; height:38px;}
   .hero{padding:36px 0 48px;}
+  .hero{background:linear-gradient(145deg,#FFFDF9 0%,#F7EDE4 100%);}
+  .hero-grid{gap:0;}
+  .hero-copy{position:relative; z-index:1; opacity:1; transform:none; animation:none;}
   .hero-copy h1{font-size:clamp(2rem,8vw,2.7rem); max-width:16ch;}
   .hero-copy p{font-size:1rem;}
   .hero-actions{display:grid; grid-template-columns:1fr; gap:10px; margin-top:22px;}
   .hero-actions .btn{width:100%; white-space:normal; padding:13px 18px;}
+  .hero-visual{display:none;}
   .section{padding:56px 0;}
   .product-actions{flex-direction:column; gap:8px;}
   .product-actions .btn{width:100%; min-width:0; padding:10px 8px; white-space:normal;}
