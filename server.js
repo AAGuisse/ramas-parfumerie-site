@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_APP_URL = process.env.ADMIN_APP_URL || 'https://ramas-parfumerie-app.onrender.com';
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_SECURE = String(process.env.SMTP_SECURE || 'true') === 'true';
@@ -236,7 +237,13 @@ app.delete('/api/products/:id', requireAdmin, requirePersistentStore, async (req
 const staticRoot = fs.existsSync(path.join(__dirname, 'index.html'))
   ? __dirname
   : path.join(__dirname, '..');
-app.get('/admin.html', requireAdmin, (_req, res) => {
+app.get('/admin.html', (req, res, next) => {
+  const host = (req.get('host') || '').toLowerCase().split(':')[0];
+  if (host === 'ramas-parfumerie-site.onrender.com') {
+    return res.redirect(302, new URL('/admin.html', ADMIN_APP_URL).toString());
+  }
+  return requireAdmin(req, res, next);
+}, (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(staticRoot, 'admin.html'));
 });

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { after, before, test } = require('node:test');
@@ -45,6 +46,18 @@ test('catalogue API requires admin access, persists locally in tests, and report
     status: 'server-running',
     persistentProducts: false
   });
+
+  const storefrontAdmin = await new Promise((resolve, reject) => {
+    const request = http.get(`${baseUrl}/admin.html`, {
+      headers: { Host: 'ramas-parfumerie-site.onrender.com' }
+    }, response => {
+      response.resume();
+      resolve(response);
+    });
+    request.on('error', reject);
+  });
+  assert.equal(storefrontAdmin.statusCode, 302);
+  assert.equal(storefrontAdmin.headers.location, 'https://ramas-parfumerie-app.onrender.com/admin.html');
 
   const storefrontPreflight = await fetch(`${baseUrl}/api/products`, {
     method: 'OPTIONS',
