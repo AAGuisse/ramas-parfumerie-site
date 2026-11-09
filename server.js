@@ -243,9 +243,22 @@ app.get('/admin.html', (req, res, next) => {
     return res.redirect(302, new URL('/admin.html', ADMIN_APP_URL).toString());
   }
   return requireAdmin(req, res, next);
-}, (_req, res) => {
+}, (_req, res, next) => {
   res.set('Cache-Control', 'no-store');
-  res.sendFile(path.join(staticRoot, 'admin.html'));
+  const adminHtmlPath = path.join(staticRoot, 'admin.html');
+  const adminScriptPath = path.join(staticRoot, 'assets', 'admin.js');
+  fs.readFile(adminHtmlPath, 'utf8', (htmlError, html) => {
+    if (htmlError) return next(htmlError);
+    fs.readFile(adminScriptPath, 'utf8', (scriptError, script) => {
+      if (scriptError) return next(scriptError);
+      const inlineScript = '<script>' + script.replace(/<\/script/gi, '<\\/script') + '</script>';
+      const renderedHtml = html.replace(
+        /<script src="assets\/manage-products\.js\?v=[^"]+"><\/script>/,
+        inlineScript
+      );
+      res.type('html').send(renderedHtml);
+    });
+  });
 });
 app.get('/assets/manage-products.js', (_req, res) => {
   res.set('Cache-Control', 'no-cache');

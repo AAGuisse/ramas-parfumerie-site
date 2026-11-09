@@ -59,6 +59,25 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(storefrontAdmin.statusCode, 302);
   assert.equal(storefrontAdmin.headers.location, 'https://ramas-parfumerie-app.onrender.com/admin.html');
 
+  const adminToken = Buffer.from(`${process.env.ADMIN_USER}:${process.env.ADMIN_PASSWORD}`).toString('base64');
+  const authenticatedAdmin = await new Promise((resolve, reject) => {
+    const request = http.get(`${baseUrl}/admin.html`, {
+      headers: {
+        Host: 'ramas-parfumerie-app.onrender.com',
+        Authorization: `Basic ${adminToken}`
+      }
+    }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => resolve({ response, body }));
+    });
+    request.on('error', reject);
+  });
+  assert.equal(authenticatedAdmin.response.statusCode, 200);
+  assert.match(authenticatedAdmin.body, /window\.ADMIN_CATALOG_READY = true/);
+  assert.doesNotMatch(authenticatedAdmin.body, /assets\/manage-products\.js/);
+
   const adminScriptAlias = await fetch(`${baseUrl}/assets/manage-products.js`);
   assert.equal(adminScriptAlias.status, 200);
   assert.match(adminScriptAlias.headers.get('content-type'), /javascript/);
