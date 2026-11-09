@@ -24,7 +24,8 @@ const TO_EMAIL = process.env.TO_EMAIL || 'niangramatoulaye4@gmail.com';
 app.disable('x-powered-by');
 const allowedOrigins = new Set([
   'https://aaguisse.github.io',
-  'https://ramas-parfumerie.github.io'
+  'https://ramas-parfumerie.github.io',
+  'https://ramas-parfumerie-site.onrender.com'
 ]);
 
 app.use((req, res, next) => {

@@ -60,6 +60,13 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(newStorefrontPreflight.status, 204);
   assert.equal(newStorefrontPreflight.headers.get('access-control-allow-origin'), 'https://ramas-parfumerie.github.io');
 
+  const renderStorefrontPreflight = await fetch(`${baseUrl}/api/products`, {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://ramas-parfumerie-site.onrender.com' }
+  });
+  assert.equal(renderStorefrontPreflight.status, 204);
+  assert.equal(renderStorefrontPreflight.headers.get('access-control-allow-origin'), 'https://ramas-parfumerie-site.onrender.com');
+
   const rejectedPreflight = await fetch(`${baseUrl}/api/products`, {
     method: 'OPTIONS',
     headers: { Origin: 'https://untrusted.example' }

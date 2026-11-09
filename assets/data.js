@@ -24,6 +24,7 @@ const STORE_CONFIG = {
 const STORE_API_HOSTS = new Set([
   "aaguisse.github.io",
   "ramas-parfumerie.github.io",
+  "ramas-parfumerie-site.onrender.com",
   "ramas-parfumerie-app.onrender.com"
 ]);
 window.STORE_API_BASE = STORE_API_HOSTS.has(location.hostname)

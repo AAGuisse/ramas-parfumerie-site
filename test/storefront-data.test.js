@@ -75,6 +75,33 @@ test('new GitHub Pages account loads products from the shared API', async () => 
   assert.equal(context.window.STORE_PRODUCTS[0].name, product.name);
 });
 
+test('Render storefront loads products from the shared API', async () => {
+  const product = { id: 23, name: 'Produit de la boutique Render', categoryId: 'parfums' };
+  let requestedUrl;
+  const context = vm.createContext({
+    window: {},
+    location: { hostname: 'ramas-parfumerie-site.onrender.com' },
+    fetch: async (url, options) => {
+      requestedUrl = url;
+      assert.equal(options.cache, 'no-store');
+      return {
+        ok: true,
+        json: async () => ({ managed: true, persistent: true, products: [product] })
+      };
+    },
+    localStorage: { getItem: () => null },
+    console
+  });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  vm.runInContext(source, context);
+  await context.window.STORE_PRODUCTS_READY;
+
+  assert.equal(context.window.STORE_API_BASE, 'https://ramas-parfumerie-app.onrender.com');
+  assert.equal(requestedUrl, 'https://ramas-parfumerie-app.onrender.com/api/products');
+  assert.equal(context.window.STORE_PRODUCTS[0].name, product.name);
+});
+
 test('admin server host loads its catalogue from the shared API', async () => {
   const product = { id: 21, name: 'Produit partagé', categoryId: 'parfums' };
   let requestedUrl;
@@ -231,9 +258,9 @@ test('every page that loads the storefront data uses the database-only asset ver
   assert.ok(storefrontPages.length > 0);
   for (const page of storefrontPages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
-    assert.match(html, /assets\/data\.js\?v=20261109-ramas-parfumerie-1/, page);
+    assert.match(html, /assets\/data\.js\?v=20261109-render-host-1/, page);
     const canonical = html.match(/<link rel="canonical" href="([^"]+)"/);
-    if (canonical) assert.match(canonical[1], /^https:\/\/ramas-parfumerie\.github\.io\/ramas-parfumerie-site\//, page);
+    if (canonical) assert.match(canonical[1], /^https:\/\/ramas-parfumerie-site\.onrender\.com\//, page);
   }
 });
 
