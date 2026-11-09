@@ -23,6 +23,8 @@ test('mobile layout keeps the original design while fitting header and checkout 
   assert.match(mobileControls, /\.product-actions\{flex-direction:column;\}/);
   assert.match(mobileControls, /\.checkout-actions\{flex-direction:column;\}/);
   assert.match(mobileControls, /\.checkout-actions \.btn\{[^}]*white-space:normal/);
+  assert.match(mobileControls, /\.step-labels\{display:grid; grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/);
+  assert.match(mobileControls, /\.step-labels span\{min-width:0; overflow-wrap:anywhere;\}/);
   assert.doesNotMatch(mobileHeader + mobileControls, /background:|color-scheme:|\.hero\{/);
 });
 
