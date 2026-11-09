@@ -53,6 +53,13 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(storefrontPreflight.status, 204);
   assert.equal(storefrontPreflight.headers.get('access-control-allow-origin'), 'https://aaguisse.github.io');
 
+  const newStorefrontPreflight = await fetch(`${baseUrl}/api/products`, {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://ramas-parfumerie.github.io' }
+  });
+  assert.equal(newStorefrontPreflight.status, 204);
+  assert.equal(newStorefrontPreflight.headers.get('access-control-allow-origin'), 'https://ramas-parfumerie.github.io');
+
   const rejectedPreflight = await fetch(`${baseUrl}/api/products`, {
     method: 'OPTIONS',
     headers: { Origin: 'https://untrusted.example' }

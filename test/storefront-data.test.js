@@ -48,6 +48,33 @@ test('storefront loads shared products asynchronously and uses their photo', asy
   assert.match(vm.runInContext('productImage({ name: "Photo invalide", image: "data:image/jpeg;base64," })', context), /^data:image\/svg\+xml/);
 });
 
+test('new GitHub Pages account loads products from the shared API', async () => {
+  const product = { id: 22, name: 'Produit du nouveau site', categoryId: 'parfums' };
+  let requestedUrl;
+  const context = vm.createContext({
+    window: {},
+    location: { hostname: 'ramas-parfumerie.github.io' },
+    fetch: async (url, options) => {
+      requestedUrl = url;
+      assert.equal(options.cache, 'no-store');
+      return {
+        ok: true,
+        json: async () => ({ managed: true, persistent: true, products: [product] })
+      };
+    },
+    localStorage: { getItem: () => null },
+    console
+  });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  vm.runInContext(source, context);
+  await context.window.STORE_PRODUCTS_READY;
+
+  assert.equal(context.window.STORE_API_BASE, 'https://ramas-parfumerie-app.onrender.com');
+  assert.equal(requestedUrl, 'https://ramas-parfumerie-app.onrender.com/api/products');
+  assert.equal(context.window.STORE_PRODUCTS[0].name, product.name);
+});
+
 test('admin server host loads its catalogue from the shared API', async () => {
   const product = { id: 21, name: 'Produit partagé', categoryId: 'parfums' };
   let requestedUrl;
@@ -204,9 +231,9 @@ test('every page that loads the storefront data uses the database-only asset ver
   assert.ok(storefrontPages.length > 0);
   for (const page of storefrontPages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
-    assert.match(html, /assets\/data\.js\?v=20261109-shared-api-admin-1/, page);
+    assert.match(html, /assets\/data\.js\?v=20261109-ramas-parfumerie-1/, page);
     const canonical = html.match(/<link rel="canonical" href="([^"]+)"/);
-    if (canonical) assert.match(canonical[1], /^https:\/\/aaguisse\.github\.io\/ramas-parfumerie-site\//, page);
+    if (canonical) assert.match(canonical[1], /^https:\/\/ramas-parfumerie\.github\.io\/ramas-parfumerie-site\//, page);
   }
 });
 
