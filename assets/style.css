@@ -2,7 +2,7 @@
    1. VARIABLES ET FONDATIONS
    ========================================================================== */
 :root{
-  color-scheme:light;
+  color-scheme:only light;
   --sand:#E9D9CE;
   --sand-deep:#D9B9A8;
   --blush:#E7B9AD;

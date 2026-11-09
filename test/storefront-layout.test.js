@@ -14,8 +14,15 @@ test('storefront product photos are contained in smaller square cards and bounde
 
 test('mobile storefront keeps the header and product actions usable on narrow screens', () => {
   const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
-  assert.match(styles, /:root\{\s*color-scheme:light;/);
+  assert.match(styles, /:root\{\s*color-scheme:only light;/);
   assert.match(styles, /@media \(max-width:520px\)\{[\s\S]*?\.header-inner\{[^}]*gap:4px;[\s\S]*?\.header-actions\{[^}]*flex-shrink:0;[\s\S]*?\.hero-actions\{[^}]*grid-template-columns:1fr;[\s\S]*?\.product-actions\{flex-direction:column/);
+
+  const pages = fs.readdirSync(root).filter(file => file.endsWith('.html'));
+  for (const page of pages) {
+    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    assert.match(html, /<meta name="color-scheme" content="light">/, page);
+    assert.match(html, /assets\/style\.css\?v=20261109-mobile-2/, page);
+  }
 });
 
 test('category pages do not show a maximum-price slider', () => {
