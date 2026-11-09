@@ -532,7 +532,12 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
 .category-card{text-decoration:none; display:block; background:var(--cream); border-radius:var(--radius-m); overflow:hidden; box-shadow:var(--shadow-soft);}
 .category-card img{aspect-ratio:5/4; object-fit:cover;}
    @media (max-width:640px){
-     .hero{padding:36px 0 44px;}
+     .hero{padding:28px 0 32px;}
+     .hero-grid{gap:18px;}
+     .hero-copy h1{font-size:clamp(2rem,8vw,2.3rem);}
+     .hero-copy p{font-size:1rem;}
+     .hero-actions{gap:10px; margin-top:20px;}
+     .hero-blob{width:min(280px,72vw);}
      .section{padding:40px 0;}
      .section-head{margin-bottom:24px;}
      .family-hero{padding:30px 0 0;}

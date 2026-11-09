@@ -33,7 +33,10 @@ test('mobile layout keeps the original design while fitting header and checkout 
   assert.match(mobileControls, /\.step-labels\{display:grid; grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/);
   assert.match(mobileControls, /\.step-labels span\{min-width:0; overflow-wrap:anywhere;\}/);
   assert.match(narrowPhone, /\.product-body\{padding:14px 16px 16px;\}/);
-  assert.match(mobileLayout, /\.hero\{padding:36px 0 44px;\}/);
+  assert.match(mobileLayout, /\.hero\{padding:28px 0 32px;\}/);
+  assert.match(mobileLayout, /\.hero-grid\{gap:18px;\}/);
+  assert.match(mobileLayout, /\.hero-blob\{width:min\(280px,72vw\);\}/);
+  assert.match(mobileLayout, /\.hero-copy h1\{font-size:clamp\(2rem,8vw,2\.3rem\);\}/);
   assert.match(mobileLayout, /\.section\{padding:40px 0;\}/);
   assert.match(mobileLayout, /\.catalogue-toolbar\{padding:14px; gap:12px; margin-bottom:20px;\}/);
   assert.match(mobileLayout, /\.back-to-top,\.back-to-top\.is-visible,\.whatsapp-float\{display:none;\}/);
