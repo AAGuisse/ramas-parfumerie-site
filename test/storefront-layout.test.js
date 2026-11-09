@@ -27,7 +27,7 @@ test('mobile layout keeps the original design while fitting header and checkout 
   assert.match(mobileControls, /\.step-labels\{display:grid; grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/);
   assert.match(mobileControls, /\.step-labels span\{min-width:0; overflow-wrap:anywhere;\}/);
   assert.match(narrowPhone, /\.product-grid\{grid-template-columns:1fr;\}/);
-  assert.match(narrowPhone, /\.back-to-top,\.back-to-top\.is-visible,\.whatsapp-float\{display:none;\}/);
+  assert.match(styles, /@media \(max-width:400px\)\{\s*\.back-to-top,\.back-to-top\.is-visible,\.whatsapp-float\{display:none;\}/);
   assert.doesNotMatch(mobileHeader + mobileControls + narrowPhone, /background:|color-scheme:|\.hero\{/);
 });
 
