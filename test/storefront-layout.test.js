@@ -16,6 +16,7 @@ test('mobile layout keeps the original design while fitting header and checkout 
   const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
   const mobileHeader = styles.match(/@media \(max-width:640px\)\{([\s\S]*?)\n\}/)?.[1] || '';
   const mobileControls = styles.match(/@media \(max-width:520px\)\{([\s\S]*?)\n\}/)?.[1] || '';
+  const narrowPhone = styles.match(/@media \(max-width:400px\)\{([\s\S]*?)\n\}/)?.[1] || '';
 
   assert.match(mobileHeader, /\.logo\{[^}]*min-width:0/);
   assert.match(mobileHeader, /\.logo-text\{[^}]*text-overflow:ellipsis/);
@@ -25,7 +26,9 @@ test('mobile layout keeps the original design while fitting header and checkout 
   assert.match(mobileControls, /\.checkout-actions \.btn\{[^}]*white-space:normal/);
   assert.match(mobileControls, /\.step-labels\{display:grid; grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/);
   assert.match(mobileControls, /\.step-labels span\{min-width:0; overflow-wrap:anywhere;\}/);
-  assert.doesNotMatch(mobileHeader + mobileControls, /background:|color-scheme:|\.hero\{/);
+  assert.match(narrowPhone, /\.product-grid\{grid-template-columns:1fr;\}/);
+  assert.match(narrowPhone, /\.back-to-top,\.back-to-top\.is-visible,\.whatsapp-float\{display:none;\}/);
+  assert.doesNotMatch(mobileHeader + mobileControls + narrowPhone, /background:|color-scheme:|\.hero\{/);
 });
 
 test('category pages do not show a maximum-price slider', () => {
