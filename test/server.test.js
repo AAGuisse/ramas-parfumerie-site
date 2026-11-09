@@ -59,6 +59,12 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(storefrontAdmin.statusCode, 302);
   assert.equal(storefrontAdmin.headers.location, 'https://ramas-parfumerie-app.onrender.com/admin.html');
 
+  const unauthenticatedAdmin = await fetch(`${baseUrl}/admin.html`, {
+    headers: { Host: 'ramas-parfumerie-app.onrender.com' }
+  });
+  assert.equal(unauthenticatedAdmin.status, 401);
+  assert.equal(unauthenticatedAdmin.headers.get('x-admin-page-version'), 'inline-catalog-1');
+
   const adminToken = Buffer.from(`${process.env.ADMIN_USER}:${process.env.ADMIN_PASSWORD}`).toString('base64');
   const authenticatedAdmin = await new Promise((resolve, reject) => {
     const request = http.get(`${baseUrl}/admin.html`, {
