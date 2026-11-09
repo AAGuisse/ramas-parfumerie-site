@@ -75,8 +75,31 @@ function safeEqual(left, right) {
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function renderAdminCatalog(products) {
-  const rows = products.map(product => {
+function renderAdminCategories(products, selectedCategory) {
+  const options = ADMIN_CATEGORIES.map(category => '<option value="' + category.id + '"'
+    + (selectedCategory === category.id ? ' selected' : '') + '>' + category.name + '</option>').join('');
+  const tabs = [{ id: '', name: 'Toutes' }, ...ADMIN_CATEGORIES].map(category => {
+    const count = category.id
+      ? products.filter(product => product.categoryId === category.id).length
+      : products.length;
+    const query = category.id ? '?category=' + encodeURIComponent(category.id) : '';
+    return '<a class="admin-family-tab' + (selectedCategory === category.id ? ' is-active' : '')
+      + '" data-category="' + category.id + '" href="/admin.html' + query
+      + '" style="display:inline-block;text-decoration:none"'
+      + (selectedCategory === category.id ? ' aria-current="page"' : '') + '>'
+      + category.name + ' (' + count + ')</a>';
+  }).join('');
+  return {
+    options: '<option value="">Choisir une famille</option>' + options,
+    tabs
+  };
+}
+
+function renderAdminCatalog(products, selectedCategory, totalProducts) {
+  const visibleProducts = selectedCategory
+    ? products.filter(product => product.categoryId === selectedCategory)
+    : products;
+  const rows = visibleProducts.map(product => {
     const category = ADMIN_CATEGORIES.find(item => item.id === product.categoryId);
     const image = product.imageUrl || 'assets/logo-ramas-parfumerie.png';
     const price = new Intl.NumberFormat('fr-FR').format(Number(product.price) || 0) + ' FCFA';
@@ -89,12 +112,15 @@ function renderAdminCatalog(products) {
       + '<div class="admin-product-status ' + (product.stock ? '' : 'is-out') + '">'
       + (product.stock ? 'En stock' : 'Rupture de stock') + '</div></article>';
   }).join('');
-  const catalogMessage = products.length
-    ? '<div class="admin-server-catalog" role="status">' + products.length
-      + (products.length > 1 ? ' produits chargés' : ' produit chargé')
+  const catalogMessage = totalProducts
+    ? '<div class="admin-server-catalog" role="status">' + totalProducts
+      + (totalProducts > 1 ? ' produits chargés' : ' produit chargé')
       + ' depuis le catalogue partagé.</div>'
     : '<div class="admin-empty">Aucun produit dans le catalogue partagé.</div>';
-  return catalogMessage + rows;
+  const emptyFilter = totalProducts && !visibleProducts.length
+    ? '<div class="admin-empty">Aucun produit dans cette famille.</div>'
+    : '';
+  return catalogMessage + emptyFilter + rows;
 }
 
 function requireAdmin(req, res, next) {
@@ -276,7 +302,7 @@ app.get('/admin.html', (req, res, next) => {
     return res.redirect(302, new URL('/admin.html', ADMIN_APP_URL).toString());
   }
   return requireAdmin(req, res, next);
-}, async (_req, res, next) => {
+}, async (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   const adminHtmlPath = path.join(staticRoot, 'admin.html');
   const adminScriptPath = path.join(staticRoot, 'assets', 'admin.js');
@@ -286,8 +312,22 @@ app.get('/admin.html', (req, res, next) => {
       fs.promises.readFile(adminScriptPath, 'utf8'),
       productStore.list()
     ]);
-    const catalogMarkup = renderAdminCatalog(catalog.managed ? catalog.products : []);
-    const renderedCatalog = html.replace(
+    const products = catalog.managed ? catalog.products : [];
+    const selectedCategory = ADMIN_CATEGORIES.some(category => category.id === req.query.category)
+      ? req.query.category
+      : '';
+    const categoryMarkup = renderAdminCategories(products, selectedCategory);
+    const categorySelect = html.replace(
+      /<select id="productCategory" required><\/select>/,
+      '<select id="productCategory" required>' + categoryMarkup.options + '</select>'
+    );
+    const categoryNavigation = categorySelect.replace(
+      /<nav class="admin-family-tabs" id="adminFamilyTabs" aria-label="Filtrer par famille"><\/nav>/,
+      '<nav class="admin-family-tabs" id="adminFamilyTabs" aria-label="Filtrer par famille">'
+        + categoryMarkup.tabs + '</nav>'
+    );
+    const catalogMarkup = renderAdminCatalog(products, selectedCategory, products.length);
+    const renderedCatalog = categoryNavigation.replace(
       /(<div class="admin-product-list" id="adminProductList">)([\s\S]*?)(<\/div>)/,
       (_match, start, _contents, end) => start + catalogMarkup + end
     );

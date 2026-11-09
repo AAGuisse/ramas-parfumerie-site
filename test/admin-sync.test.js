@@ -9,6 +9,7 @@ test('admin refreshes shared products and protects a product changed by another 
   const adminScript = fs.readFileSync(path.join(root, 'assets', 'admin.js'), 'utf8');
   assert.match(adminScript, /cache:"no-store"/);
   assert.match(adminScript, /window\.ADMIN_CATALOG_READY = true/);
+  assert.match(adminScript, /new URLSearchParams\(location\.search\)\.get\("category"\)/);
   assert.match(adminScript, /setInterval\(\(\) => \{\s*if \(!document\.hidden\) loadProducts\(\{ background:true \}\);\s*\}, 5000\)/);
   assert.match(adminScript, /addEventListener\("visibilitychange"/);
   assert.match(adminScript, /Ce produit a été modifié par l’autre administrateur/);

@@ -13,7 +13,7 @@ const categories = [
 
 let products = [];
 let editingId = null;
-let activeCategory = "";
+let activeCategory = new URLSearchParams(location.search).get("category") || "";
 let managedProducts = false;
 let localCatalog = false;
 let editingSnapshot = null;
@@ -118,7 +118,8 @@ function offerLocalImport() {
 function setFormError(message) { byId("formError").textContent = message || ""; }
 function fillCategorySelects() {
   byId("productCategory").innerHTML = categories.map(category => '<option value="' + category.id + '">' + category.name + '</option>').join("");
-  byId("adminFamilyTabs").innerHTML = '<button class="admin-family-tab is-active" type="button" data-category="">Toutes</button>' + categories.map(category => '<button class="admin-family-tab" type="button" data-category="' + category.id + '">' + category.name + '</button>').join("");
+  byId("productCategory").value = activeCategory;
+  byId("adminFamilyTabs").innerHTML = '<button class="admin-family-tab' + (activeCategory ? '' : ' is-active') + '" type="button" data-category="">Toutes</button>' + categories.map(category => '<button class="admin-family-tab' + (activeCategory === category.id ? ' is-active' : '') + '" type="button" data-category="' + category.id + '">' + category.name + '</button>').join("");
 }
 function resetForm() {
   editingId = null;

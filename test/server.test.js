@@ -97,6 +97,10 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.doesNotMatch(authenticatedAdmin.body, /assets\/manage-products\.js/);
   assert.match(authenticatedAdmin.body, /1 produit chargé depuis le catalogue partagé/);
   assert.match(authenticatedAdmin.body, /Produit rendu côté serveur/);
+  assert.match(authenticatedAdmin.body, /<option value="parfums">Parfums<\/option>/);
+  assert.match(authenticatedAdmin.body, /<option value="thiouraye">Thiouraye \(Encens\)<\/option>/);
+  assert.match(authenticatedAdmin.body, /href="\/admin\.html\?category=parfums"/);
+  assert.match(authenticatedAdmin.body, /Parfums \(1\)/);
   fs.rmSync(process.env.PRODUCTS_FILE, { force: true });
 
   const adminScriptAlias = await fetch(`${baseUrl}/assets/manage-products.js`);
