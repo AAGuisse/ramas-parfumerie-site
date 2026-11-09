@@ -21,6 +21,6 @@ test('admin forces browsers to load the latest scripts and shows whole product p
   const adminHtml = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
   const adminStyles = fs.readFileSync(path.join(root, 'assets', 'admin.css'), 'utf8');
   assert.match(adminHtml, /assets\/admin\.css\?v=/);
-  assert.match(adminHtml, /assets\/admin\.js\?v=/);
+  assert.match(adminHtml, /assets\/admin\.js\?v=20261109-admin-catalog-1/);
   assert.match(adminStyles, /\.admin-product-thumb\{[^}]*object-fit:contain/);
 });
