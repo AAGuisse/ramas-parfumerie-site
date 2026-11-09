@@ -2,6 +2,7 @@
    1. VARIABLES ET FONDATIONS
    ========================================================================== */
 :root{
+  color-scheme:light;
   --sand:#E9D9CE;
   --sand-deep:#D9B9A8;
   --blush:#E7B9AD;
@@ -186,6 +187,23 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
 .hero-note strong{display:block; font-family:var(--font-display); font-size:1.1rem; color:var(--clay-ink);}
 .hero-fade{animation:heroFade 0.7s ease both;}
 @keyframes heroFade{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+@media (max-width:520px){
+  .header-inner{padding:10px 12px; gap:4px;}
+  .site-header.is-scrolled .header-inner{padding:8px 12px;}
+  .logo{gap:7px; min-width:0;}
+  .logo-mark{width:40px; height:40px;}
+  .logo-text{font-size:clamp(0.82rem,3.8vw,1.05rem); letter-spacing:-0.02em;}
+  .header-actions{gap:0; flex-shrink:0;}
+  .icon-btn{width:38px; height:38px;}
+  .hero{padding:36px 0 48px;}
+  .hero-copy h1{font-size:clamp(2rem,8vw,2.7rem); max-width:16ch;}
+  .hero-copy p{font-size:1rem;}
+  .hero-actions{display:grid; grid-template-columns:1fr; gap:10px; margin-top:22px;}
+  .hero-actions .btn{width:100%; white-space:normal; padding:13px 18px;}
+  .section{padding:56px 0;}
+  .product-actions{flex-direction:column; gap:8px;}
+  .product-actions .btn{width:100%; min-width:0; padding:10px 8px; white-space:normal;}
+}
 @media (min-width:860px){
   .hero-grid{grid-template-columns:1.1fr 0.9fr;}
   .hero-visual{justify-self:end;}

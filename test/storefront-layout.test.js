@@ -12,6 +12,12 @@ test('storefront product photos are contained in smaller square cards and bounde
   assert.match(styles, /\.product-modal-media img\{[^}]*height:min\(42vh,360px\);[^}]*object-fit:contain/);
 });
 
+test('mobile storefront keeps the header and product actions usable on narrow screens', () => {
+  const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
+  assert.match(styles, /:root\{\s*color-scheme:light;/);
+  assert.match(styles, /@media \(max-width:520px\)\{[\s\S]*?\.header-inner\{[^}]*gap:4px;[\s\S]*?\.header-actions\{[^}]*flex-shrink:0;[\s\S]*?\.hero-actions\{[^}]*grid-template-columns:1fr;[\s\S]*?\.product-actions\{flex-direction:column/);
+});
+
 test('category pages do not show a maximum-price slider', () => {
   const pages = [
     'produits-accessoires.html',
