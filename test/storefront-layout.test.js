@@ -12,19 +12,6 @@ test('storefront product photos are contained in smaller square cards and bounde
   assert.match(styles, /\.product-modal-media img\{[^}]*height:min\(42vh,360px\);[^}]*object-fit:contain/);
 });
 
-test('mobile storefront keeps the header and product actions usable on narrow screens', () => {
-  const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
-  assert.match(styles, /:root\{\s*color-scheme:only light;/);
-  assert.match(styles, /@media \(max-width:520px\)\{[\s\S]*?\.header-inner\{[^}]*gap:4px;[\s\S]*?\.header-actions\{[^}]*flex-shrink:0;[\s\S]*?\.hero-copy\{[^}]*opacity:1;[^}]*animation:none;[\s\S]*?\.hero-actions\{[^}]*grid-template-columns:1fr;[\s\S]*?\.hero-visual\{display:none;\}[\s\S]*?\.product-grid\{gap:10px;\}[\s\S]*?\.product-actions \.btn\{[^}]*min-height:44px;[\s\S]*?\.checkout-actions\{flex-direction:column;\}[\s\S]*?\.checkout-actions \.btn\{[^}]*white-space:normal/);
-
-  const pages = fs.readdirSync(root).filter(file => file.endsWith('.html'));
-  for (const page of pages) {
-    const html = fs.readFileSync(path.join(root, page), 'utf8');
-    assert.match(html, /<meta name="color-scheme" content="light">/, page);
-    assert.match(html, /assets\/style\.css\?v=20261109-mobile-4/, page);
-  }
-});
-
 test('category pages do not show a maximum-price slider', () => {
   const pages = [
     'produits-accessoires.html',
