@@ -21,6 +21,16 @@ const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const TO_EMAIL = process.env.TO_EMAIL || 'niangramatoulaye4@gmail.com';
+const ADMIN_CATEGORIES = [
+  { id: 'parfums', name: 'Parfums' },
+  { id: 'brumes', name: 'Brumes corporelles' },
+  { id: 'huiles', name: 'Huiles parfumées' },
+  { id: 'soins', name: 'Soins du corps' },
+  { id: 'capillaires', name: 'Produits capillaires' },
+  { id: 'coffrets', name: 'Coffrets' },
+  { id: 'accessoires', name: 'Accessoires' },
+  { id: 'thiouraye', name: 'Thiouraye (Encens)' }
+];
 
 app.disable('x-powered-by');
 const allowedOrigins = new Set([
@@ -63,6 +73,28 @@ function safeEqual(left, right) {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function renderAdminCatalog(products) {
+  const rows = products.map(product => {
+    const category = ADMIN_CATEGORIES.find(item => item.id === product.categoryId);
+    const image = product.imageUrl || 'assets/logo-ramas-parfumerie.png';
+    const price = new Intl.NumberFormat('fr-FR').format(Number(product.price) || 0) + ' FCFA';
+    return '<article class="admin-product-row">'
+      + '<img class="admin-product-thumb" src="' + escapeHtml(image) + '" alt="" loading="lazy">'
+      + '<div class="admin-product-main"><strong>' + escapeHtml(product.name) + '</strong><span>'
+      + escapeHtml(category ? category.name : product.categoryId) + ' · '
+      + escapeHtml(product.reference || 'Sans référence') + '</span></div>'
+      + '<div class="admin-product-price">' + price + '</div>'
+      + '<div class="admin-product-status ' + (product.stock ? '' : 'is-out') + '">'
+      + (product.stock ? 'En stock' : 'Rupture de stock') + '</div></article>';
+  }).join('');
+  const catalogMessage = products.length
+    ? '<div class="admin-server-catalog" role="status">' + products.length
+      + (products.length > 1 ? ' produits chargés' : ' produit chargé')
+      + ' depuis le catalogue partagé.</div>'
+    : '<div class="admin-empty">Aucun produit dans le catalogue partagé.</div>';
+  return catalogMessage + rows;
 }
 
 function requireAdmin(req, res, next) {
@@ -238,28 +270,36 @@ const staticRoot = fs.existsSync(path.join(__dirname, 'index.html'))
   ? __dirname
   : path.join(__dirname, '..');
 app.get('/admin.html', (req, res, next) => {
-  res.set('X-Admin-Page-Version', 'inline-catalog-1');
+  res.set('X-Admin-Page-Version', 'server-catalog-1');
   const host = (req.get('host') || '').toLowerCase().split(':')[0];
   if (host === 'ramas-parfumerie-site.onrender.com') {
     return res.redirect(302, new URL('/admin.html', ADMIN_APP_URL).toString());
   }
   return requireAdmin(req, res, next);
-}, (_req, res, next) => {
+}, async (_req, res, next) => {
   res.set('Cache-Control', 'no-store');
   const adminHtmlPath = path.join(staticRoot, 'admin.html');
   const adminScriptPath = path.join(staticRoot, 'assets', 'admin.js');
-  fs.readFile(adminHtmlPath, 'utf8', (htmlError, html) => {
-    if (htmlError) return next(htmlError);
-    fs.readFile(adminScriptPath, 'utf8', (scriptError, script) => {
-      if (scriptError) return next(scriptError);
-      const inlineScript = '<script>' + script.replace(/<\/script/gi, '<\\/script') + '</script>';
-      const renderedHtml = html.replace(
-        /<script src="assets\/manage-products\.js\?v=[^"]+"><\/script>/,
-        inlineScript
-      );
-      res.type('html').send(renderedHtml);
-    });
-  });
+  try {
+    const [html, script, catalog] = await Promise.all([
+      fs.promises.readFile(adminHtmlPath, 'utf8'),
+      fs.promises.readFile(adminScriptPath, 'utf8'),
+      productStore.list()
+    ]);
+    const catalogMarkup = renderAdminCatalog(catalog.managed ? catalog.products : []);
+    const renderedCatalog = html.replace(
+      /(<div class="admin-product-list" id="adminProductList">)([\s\S]*?)(<\/div>)/,
+      (_match, start, _contents, end) => start + catalogMarkup + end
+    );
+    const inlineScript = '<script>' + script.replace(/<\/script/gi, '<\\/script') + '</script>';
+    const renderedHtml = renderedCatalog.replace(
+      /<script src="assets\/manage-products\.js\?v=[^"]+"><\/script>/,
+      inlineScript
+    );
+    res.type('html').send(renderedHtml);
+  } catch (error) {
+    next(error);
+  }
 });
 app.get('/assets/manage-products.js', (_req, res) => {
   res.set('Cache-Control', 'no-cache');

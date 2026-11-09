@@ -63,8 +63,20 @@ test('catalogue API requires admin access, persists locally in tests, and report
     headers: { Host: 'ramas-parfumerie-app.onrender.com' }
   });
   assert.equal(unauthenticatedAdmin.status, 401);
-  assert.equal(unauthenticatedAdmin.headers.get('x-admin-page-version'), 'inline-catalog-1');
+  assert.equal(unauthenticatedAdmin.headers.get('x-admin-page-version'), 'server-catalog-1');
 
+  fs.writeFileSync(process.env.PRODUCTS_FILE, JSON.stringify([{
+    id: 9,
+    name: 'Produit rendu côté serveur',
+    categoryId: 'parfums',
+    description: '',
+    price: 2500,
+    oldPrice: null,
+    stock: true,
+    reference: 'PAR-009',
+    featured: false,
+    popularity: 50
+  }]));
   const adminToken = Buffer.from(`${process.env.ADMIN_USER}:${process.env.ADMIN_PASSWORD}`).toString('base64');
   const authenticatedAdmin = await new Promise((resolve, reject) => {
     const request = http.get(`${baseUrl}/admin.html`, {
@@ -83,6 +95,9 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(authenticatedAdmin.response.statusCode, 200);
   assert.match(authenticatedAdmin.body, /window\.ADMIN_CATALOG_READY = true/);
   assert.doesNotMatch(authenticatedAdmin.body, /assets\/manage-products\.js/);
+  assert.match(authenticatedAdmin.body, /1 produit chargé depuis le catalogue partagé/);
+  assert.match(authenticatedAdmin.body, /Produit rendu côté serveur/);
+  fs.rmSync(process.env.PRODUCTS_FILE, { force: true });
 
   const adminScriptAlias = await fetch(`${baseUrl}/assets/manage-products.js`);
   assert.equal(adminScriptAlias.status, 200);

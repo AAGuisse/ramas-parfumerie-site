@@ -270,6 +270,11 @@ async function loadProducts({ background = false } = {}) {
     managedProducts = false;
     localCatalog = localDevelopment;
     productsSnapshot = "";
+    const hasServerRenderedCatalog = !localDevelopment && Boolean(byId("adminProductList").querySelector(".admin-server-catalog"));
+    if (hasServerRenderedCatalog) {
+      setNotice("La liste affichée vient du serveur, mais l’interface d’administration n’a pas pu être initialisée.", true);
+      return;
+    }
     try {
       products = localDevelopment
         ? JSON.parse(localStorage.getItem("ramasProducts")) || window.STORE_PRODUCTS || []
