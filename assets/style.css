@@ -29,7 +29,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;}
-html{scroll-behavior:smooth;}
+html{color-scheme:only light; scroll-behavior:smooth;}
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto;}
   *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
@@ -290,6 +290,9 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
 }
 @media (max-width:400px){
   .product-body{padding:14px 16px 16px;}
+}
+@media (max-width:360px){
+  .logo-text{display:none;}
 }
 .stock-note{font-size:0.78rem; color:var(--sage);}
 .stock-note.is-out{color:var(--ink-faint);}

@@ -44,6 +44,20 @@ test('mobile layout keeps the original design while fitting header and checkout 
   assert.doesNotMatch(mobileHeader + mobileControls + mobileLayout + narrowPhone, /background:|color-scheme:/);
 });
 
+test('pages preserve the light brand palette on dark-mode phones', () => {
+  const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
+  assert.match(styles, /html\{color-scheme:only light;/);
+  assert.match(styles, /@media \(max-width:360px\)\{\s*\.logo-text\{display:none;\}/);
+
+  const pages = fs.readdirSync(root).filter(file => file.endsWith('.html'));
+  assert.ok(pages.length > 0);
+  for (const page of pages) {
+    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    assert.match(html, /<meta name="theme-color" content="#FCF8F2">/, page);
+    assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
+  }
+});
+
 test('category pages do not show a maximum-price slider', () => {
   const pages = [
     'produits-accessoires.html',
