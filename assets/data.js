@@ -21,7 +21,12 @@ const STORE_CONFIG = {
   }
 };
 
-window.STORE_API_BASE = location.hostname.endsWith("github.io")
+const STORE_API_HOSTS = new Set([
+  "aaguisse.github.io",
+  "ramasparfumerie.sn",
+  "www.ramasparfumerie.sn"
+]);
+window.STORE_API_BASE = STORE_API_HOSTS.has(location.hostname)
   ? "https://ramas-parfumerie-app.onrender.com"
   : "";
 

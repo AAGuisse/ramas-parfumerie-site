@@ -46,12 +46,18 @@ test('catalogue API requires admin access, persists locally in tests, and report
     persistentProducts: false
   });
 
-  const storefrontPreflight = await fetch(`${baseUrl}/api/products`, {
-    method: 'OPTIONS',
-    headers: { Origin: 'https://aaguisse.github.io' }
-  });
-  assert.equal(storefrontPreflight.status, 204);
-  assert.equal(storefrontPreflight.headers.get('access-control-allow-origin'), 'https://aaguisse.github.io');
+  for (const origin of [
+    'https://aaguisse.github.io',
+    'https://ramasparfumerie.sn',
+    'https://www.ramasparfumerie.sn'
+  ]) {
+    const storefrontPreflight = await fetch(`${baseUrl}/api/products`, {
+      method: 'OPTIONS',
+      headers: { Origin: origin }
+    });
+    assert.equal(storefrontPreflight.status, 204);
+    assert.equal(storefrontPreflight.headers.get('access-control-allow-origin'), origin);
+  }
 
   const rejectedPreflight = await fetch(`${baseUrl}/api/products`, {
     method: 'OPTIONS',

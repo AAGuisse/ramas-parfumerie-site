@@ -22,7 +22,11 @@ const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const TO_EMAIL = process.env.TO_EMAIL || 'niangramatoulaye4@gmail.com';
 
 app.disable('x-powered-by');
-const allowedOrigins = new Set(['https://aaguisse.github.io']);
+const allowedOrigins = new Set([
+  'https://aaguisse.github.io',
+  'https://ramasparfumerie.sn',
+  'https://www.ramasparfumerie.sn'
+]);
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
