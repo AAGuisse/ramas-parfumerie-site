@@ -276,7 +276,7 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
 .product-actions{display:flex; gap:8px; margin-top:10px;}
 .product-actions .btn{flex:1; padding:10px 12px; font-size:0.85rem;}
 @media (max-width:520px){
-  .product-grid{gap:12px;}
+  .product-grid{grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
   .product-body{padding:12px 10px 14px;}
   .product-actions{flex-direction:column;}
   .product-actions .btn{width:100%; min-height:44px; padding:8px 6px; white-space:normal;}
@@ -289,7 +289,7 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
   .cart-summary .btn{min-height:48px; white-space:normal;}
 }
 @media (max-width:400px){
-  .product-body{padding:14px 16px 16px;}
+  .product-body{padding:10px 8px 12px;}
 }
 @media (max-width:360px){
   .logo-text{display:none;}
@@ -548,7 +548,4 @@ input,select,textarea{font-family:inherit; font-size:1rem;}
      .back-to-top,.back-to-top.is-visible,.whatsapp-float{display:none;}
      .family-tabs{padding:10px 12px; scrollbar-width:none; -ms-overflow-style:none;}
      .family-tabs::-webkit-scrollbar{display:none;}
-   }
-   @media (max-width:400px){
-     .product-body{padding:14px 16px 16px;}
    }

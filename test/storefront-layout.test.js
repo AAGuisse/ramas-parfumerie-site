@@ -144,6 +144,7 @@ test('mobile layout keeps the original design while fitting header and checkout 
 
   assert.match(styles, /\.category-row\{[^}]*grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
   assert.match(styles, /\.product-grid\{[^}]*grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
+  assert.match(mobileControls, /\.product-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\); gap:12px;\}/);
   assert.match(styles, /\.product-card\{[^}]*min-width:0/);
   assert.match(mobileHeader, /\.logo\{[^}]*min-width:0/);
   assert.match(mobileHeader, /\.logo-text\{[^}]*text-overflow:ellipsis/);
@@ -153,7 +154,7 @@ test('mobile layout keeps the original design while fitting header and checkout 
   assert.match(mobileControls, /\.checkout-actions \.btn\{[^}]*white-space:normal/);
   assert.match(mobileControls, /\.step-labels\{display:grid; grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/);
   assert.match(mobileControls, /\.step-labels span\{min-width:0; overflow-wrap:anywhere;\}/);
-  assert.match(narrowPhone, /\.product-body\{padding:14px 16px 16px;\}/);
+  assert.match(narrowPhone, /\.product-body\{padding:10px 8px 12px;\}/);
   assert.match(mobileLayout, /\.hero\{padding:28px 0 32px;\}/);
   assert.match(mobileLayout, /\.hero-grid\{gap:18px;\}/);
   assert.match(mobileLayout, /\.hero-blob\{width:min\(280px,72vw\);\}/);
@@ -183,7 +184,7 @@ test('pages preserve the light brand palette on dark-mode phones', () => {
     if (html.includes('assets/app.js')) {
       assert.match(html, /assets\/app\.js\?v=20261113-max-it-1/, page);
     }
-    assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
+    assert.match(html, /assets\/style\.css\?v=20261113-mobile-grid-1/, page);
   }
 });
 
