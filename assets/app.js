@@ -438,9 +438,12 @@ function initiateWavePayment(){
 function initiateOrangeMoneyPayment(){
   const banner = document.getElementById("paymentBanner");
   const amount = formatPrice(cartTotals(checkoutState.zone).total);
-  banner.textContent = "Orange Money s’ouvre. Envoyez " + amount + " au " + STORE_CONFIG.phone + " puis confirmez le transfert.";
+  banner.textContent = "Max it s’ouvre. Envoyez " + amount + " au " + STORE_CONFIG.phone + " puis confirmez le transfert dans l’application.";
   banner.classList.add("is-visible");
-  window.location.assign("tel:%23144%23");
+  const maxItUrl = "https://onelink.to/6h78t2";
+  const appWindow = window.open(maxItUrl, "_blank");
+  if (appWindow) appWindow.opener = null;
+  else window.location.assign(maxItUrl);
 }
 function confirmPayment(){
   checkoutState.orderId = "RP-" + new Date().getFullYear() + "-" + Date.now().toString().slice(-6);
