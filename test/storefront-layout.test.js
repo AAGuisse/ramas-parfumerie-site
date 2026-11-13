@@ -46,7 +46,10 @@ test('mobile layout keeps the original design while fitting header and checkout 
 
 test('pages preserve the light brand palette on dark-mode phones', () => {
   const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
-  assert.match(styles, /html\{color-scheme:only light;/);
+  assert.match(styles, /html\{color-scheme:only light !important;/);
+  assert.match(styles, /--sand:#E9D9CE;/);
+  assert.match(styles, /--cream:#FCF8F2;/);
+  assert.match(styles, /--ink:#302019;/);
   assert.match(styles, /@media \(max-width:360px\)\{\s*\.logo-text\{display:none;\}/);
 
   const pages = fs.readdirSync(root).filter(file => file.endsWith('.html'));
@@ -55,7 +58,7 @@ test('pages preserve the light brand palette on dark-mode phones', () => {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.match(html, /<meta name="theme-color" content="#FCF8F2">/, page);
     assert.match(html, /<meta name="color-scheme" content="light">/, page);
-    assert.match(html, /<style>html\{color-scheme:only light\}<\/style>/, page);
+    assert.match(html, /<style>html\{color-scheme:only light!important\}<\/style>/, page);
     assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
   }
 });

@@ -29,7 +29,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;}
-html{color-scheme:only light; scroll-behavior:smooth;}
+html{color-scheme:only light !important; scroll-behavior:smooth;}
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto;}
   *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
