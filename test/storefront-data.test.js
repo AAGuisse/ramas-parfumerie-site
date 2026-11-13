@@ -291,7 +291,7 @@ test('every page that loads the storefront data uses the database-only asset ver
   assert.ok(storefrontPages.length > 0);
   for (const page of storefrontPages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
-    assert.match(html, /assets\/data\.js\?v=20261109-render-host-1/, page);
+    assert.match(html, /assets\/data\.js\?v=20261113-delivery-1/, page);
     const canonical = html.match(/<link rel="canonical" href="([^"]+)"/);
     if (canonical) assert.match(canonical[1], /^https:\/\/ramas-parfumerie-site\.onrender\.com\//, page);
   }

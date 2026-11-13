@@ -37,6 +37,54 @@ test('selecting Wave opens its payment link immediately and falls back when popu
   assert.equal(fallbackUrl, waveUrl);
 });
 
+test('Dakar delivery is added to the total and pickup in Thiaroye is free', () => {
+  const app = fs.readFileSync(path.join(root, 'assets', 'app.js'), 'utf8');
+  const data = fs.readFileSync(path.join(root, 'assets', 'data.js'), 'utf8');
+  const totalsFunction = app.match(/function cartTotals\(zone = "dakar"\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(totalsFunction);
+  assert.match(data, /deliveryFees:\s*\{\s*dakar:\s*1000,\s*retrait:\s*0/);
+
+  const context = {
+    cart: [{ id: 'item', qty: 2 }],
+    getProduct: () => ({ price: 500 }),
+    STORE_CONFIG: { deliveryFees: { dakar: 1000, retrait: 0 } }
+  };
+  vm.runInNewContext(totalsFunction, context);
+  assert.equal(context.cartTotals().total, 2000);
+  assert.equal(context.cartTotals('retrait').total, 1000);
+  assert.equal(context.cartTotals('retrait').delivery, 0);
+
+  const deliveryFieldsFunction = app.match(/function updateCheckoutDeliveryFields\(\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(deliveryFieldsFunction);
+  const addressField = { hidden: false, classList: { remove() {} } };
+  const addressInput = { required: true };
+  const cityInput = { value: 'Dakar' };
+  const fields = { ckFieldAddress: addressField, ckAddress: addressInput, ckCity: cityInput };
+  context.ckZone = { value: 'retrait' };
+  context.document = { getElementById: id => fields[id] };
+  context.STORE_CONFIG.address = 'Thiaroye';
+  vm.runInNewContext(deliveryFieldsFunction, context);
+  context.updateCheckoutDeliveryFields();
+  assert.equal(addressField.hidden, true);
+  assert.equal(addressInput.required, false);
+  assert.equal(cityInput.value, 'Thiaroye');
+  context.ckZone.value = 'dakar';
+  context.updateCheckoutDeliveryFields();
+  assert.equal(addressField.hidden, false);
+  assert.equal(addressInput.required, true);
+  assert.equal(cityInput.value, 'Dakar');
+
+  const checkoutPages = fs.readdirSync(root).filter(file => {
+    return file.endsWith('.html') && fs.readFileSync(path.join(root, file), 'utf8').includes('id="ckZone"');
+  });
+  assert.ok(checkoutPages.length > 0);
+  for (const page of checkoutPages) {
+    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    assert.match(html, /Dakar : 1 000 FCFA/, page);
+    assert.match(html, /Retrait en boutique : Thiaroye/, page);
+  }
+});
+
 test('storefront product photos are contained in smaller square cards and bounded detail views', () => {
   const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
   assert.match(styles, /\.product-media\{[^}]*aspect-ratio:1;[^}]*overflow:hidden/);
@@ -92,7 +140,7 @@ test('pages preserve the light brand palette on dark-mode phones', () => {
     assert.match(html, /<meta name="color-scheme" content="light">/, page);
     assert.match(html, /<style>html\{color-scheme:only light!important\}<\/style>/, page);
     if (html.includes('assets/app.js')) {
-      assert.match(html, /assets\/app\.js\?v=20261113-wave-direct-1/, page);
+      assert.match(html, /assets\/app\.js\?v=20261113-delivery-1/, page);
     }
     assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
   }

@@ -247,10 +247,11 @@ function clearCart(){
   renderCartCount();
   renderCartDrawer();
 }
-function cartTotals(){
+function cartTotals(zone = "dakar"){
   let subtotal = 0;
   cart.forEach(i => { const p = getProduct(i.id); if (p) subtotal += p.price * i.qty; });
-  return { subtotal:subtotal, total:subtotal };
+  const delivery = zone === "retrait" ? STORE_CONFIG.deliveryFees.retrait : STORE_CONFIG.deliveryFees.dakar;
+  return { subtotal:subtotal, delivery:delivery, total:subtotal + delivery };
 }
 function renderCartCount(){
   const el = document.getElementById("cartCount");
@@ -359,13 +360,29 @@ function goToCheckoutStep(n){
   document.querySelectorAll(".checkout-step").forEach(s => s.classList.toggle("is-active", Number(s.dataset.step) === n));
   document.querySelectorAll(".progress-step").forEach((s, idx) => s.classList.toggle("is-done", idx < n));
   if (n === 4){
-    document.getElementById("paymentAmount").textContent = formatPrice(cartTotals().total);
+    document.getElementById("paymentAmount").textContent = formatPrice(cartTotals(checkoutState.zone).total);
   }
 }
 document.querySelectorAll("[data-prev]").forEach(btn => btn.addEventListener("click", () => goToCheckoutStep(Number(btn.dataset.prev))));
 
 function setFieldError(fieldId, hasError){
   document.getElementById(fieldId).classList.toggle("has-error", hasError);
+}
+
+const ckZone = document.getElementById("ckZone");
+function updateCheckoutDeliveryFields(){
+  const isPickup = ckZone.value === "retrait";
+  const addressField = document.getElementById("ckFieldAddress");
+  const addressInput = document.getElementById("ckAddress");
+  const cityInput = document.getElementById("ckCity");
+  addressField.hidden = isPickup;
+  addressInput.required = !isPickup;
+  cityInput.value = isPickup ? STORE_CONFIG.address : "Dakar";
+  if (isPickup) addressField.classList.remove("has-error");
+}
+if (ckZone){
+  ckZone.addEventListener("change", updateCheckoutDeliveryFields);
+  updateCheckoutDeliveryFields();
 }
 
 const toStep2 = document.getElementById("toStep2");
@@ -386,11 +403,12 @@ if (toStep3) toStep3.addEventListener("click", () => {
 
 const toStep4 = document.getElementById("toStep4");
 if (toStep4) toStep4.addEventListener("click", () => {
+  const zone = ckZone.value;
   const address = document.getElementById("ckAddress").value.trim();
-  setFieldError("ckFieldAddress", !address);
-  if (!address) return;
-  checkoutState.address = address;
-  checkoutState.zone = document.getElementById("ckZone").value;
+  setFieldError("ckFieldAddress", zone !== "retrait" && !address);
+  if (zone !== "retrait" && !address) return;
+  checkoutState.address = zone === "retrait" ? STORE_CONFIG.address : address;
+  checkoutState.zone = zone;
   checkoutState.district = document.getElementById("ckDistrict").value.trim();
   checkoutState.city = document.getElementById("ckCity").value.trim();
   checkoutState.notes = document.getElementById("ckNotes").value.trim();
@@ -419,7 +437,7 @@ function initiateWavePayment(){
 }
 function initiateOrangeMoneyPayment(){
   const banner = document.getElementById("paymentBanner");
-  const amount = formatPrice(cartTotals().total);
+  const amount = formatPrice(cartTotals(checkoutState.zone).total);
   banner.textContent = "Moyen choisi : Orange Money. Après l’envoi de la commande, envoyez " + amount + " au " + STORE_CONFIG.phone + ".";
   banner.classList.add("is-visible");
 }
@@ -439,13 +457,15 @@ if (toStep5) toStep5.addEventListener("click", () => {
 });
 
 function renderOrderRecap(result){
-  const totals = cartTotals();
-  const zoneLabels = { dakar:"Dakar", retrait:"Retrait en boutique" };
+  const totals = cartTotals(checkoutState.zone);
+  const deliverySummary = checkoutState.zone === "retrait"
+    ? "Retrait en boutique à " + STORE_CONFIG.address + " (sans frais)"
+    : "Livraison à Dakar : " + formatPrice(totals.delivery);
   const paymentLabels = { wave:"Wave", orange:"Orange Money" };
   document.getElementById("orderRecap").innerHTML =
     '<dt>Numéro de commande</dt><dd>' + result.orderId + '</dd>'
     + '<dt>Client</dt><dd>' + escapeXml(checkoutState.name) + '</dd>'
-    + '<dt>Livraison</dt><dd>' + (checkoutState.zone === "retrait" ? "Retrait en boutique (localisation à préciser)" : zoneLabels[checkoutState.zone] + ', ' + escapeXml(checkoutState.city) + ' (1 000 à 2 000 FCFA)') + '</dd>'
+    + '<dt>Mode de remise</dt><dd>' + escapeXml(deliverySummary) + '</dd>'
     + '<dt>Mode de paiement</dt><dd>' + paymentLabels[checkoutState.paymentMethod] + '</dd>'
     + '<dt>Statut du paiement</dt><dd>' + result.status + '</dd>'
     + '<dt>Total</dt><dd>' + formatPrice(totals.total) + '</dd>';
@@ -467,15 +487,15 @@ if (closeConfirmationBtn) closeConfirmationBtn.addEventListener("click", () => {
    MESSAGE WHATSAPP DE COMMANDE
    ========================================================================== */
 function buildWhatsAppOrderLink(orderId){
-  const totals = cartTotals();
-  const zoneLabels = { dakar:"Dakar", retrait:"Retrait en boutique" };
+  const isPickup = checkoutState.zone === "retrait";
+  const totals = cartTotals(checkoutState.zone);
   const paymentLabels = { wave:"Wave", orange:"Orange Money" };
   const lines = [
     "Nouvelle commande : " + STORE_CONFIG.name,
     "Nom du client : " + checkoutState.name,
     "Téléphone : " + checkoutState.phone,
-    "Adresse : " + checkoutState.address + (checkoutState.district ? (", " + checkoutState.district) : ""),
-    "Mode de remise : " + (checkoutState.zone === "retrait" ? "Retrait en boutique (localisation à préciser)" : "Livraison à Dakar"),
+    "Mode de remise : " + (isPickup ? "Retrait en boutique à " + STORE_CONFIG.address : "Livraison à Dakar"),
+    ...(isPickup ? [] : ["Adresse : " + checkoutState.address + (checkoutState.district ? (", " + checkoutState.district) : "")]),
     "Mode de paiement : " + (paymentLabels[checkoutState.paymentMethod] || ""),
     "",
     "Produits commandés :"
@@ -486,7 +506,7 @@ function buildWhatsAppOrderLink(orderId){
   });
   lines.push("");
   lines.push("Sous-total : " + formatPrice(totals.subtotal));
-  lines.push(checkoutState.zone === "retrait" ? "Retrait en boutique : localisation à préciser" : "Livraison à Dakar : 1 000 à 2 000 FCFA");
+  lines.push("Frais de livraison : " + formatPrice(totals.delivery));
   lines.push("Total : " + formatPrice(totals.total));
   lines.push("Numéro de commande : " + orderId);
   const message = encodeURIComponent(lines.join("\n"));

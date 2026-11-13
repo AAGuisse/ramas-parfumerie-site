@@ -16,8 +16,8 @@ const STORE_CONFIG = {
   facebook: "https://www.facebook.com/share/1DZ7AsTwfj/",
   tiktok: "https://www.tiktok.com/@ramsesse1?_r=1&_t=ZS-99XDhvMPcNk",
   deliveryFees: {
-    dakar: "1 000 à 2 000 FCFA",
-    retrait: "Localisation à préciser"
+    dakar: 1000,
+    retrait: 0
   }
 };
 
