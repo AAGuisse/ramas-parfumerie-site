@@ -37,6 +37,34 @@ test('selecting Wave opens its payment link immediately and falls back when popu
   assert.equal(fallbackUrl, waveUrl);
 });
 
+test('selecting Orange Money opens the USSD menu and shows the payment details', () => {
+  const app = fs.readFileSync(path.join(root, 'assets', 'app.js'), 'utf8');
+  const orangeFunction = app.match(/function initiateOrangeMoneyPayment\(\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(orangeFunction);
+
+  const banner = { textContent: '', classList: { add(value) { this.added = value; } } };
+  const destinations = [];
+  const context = {
+    checkoutState: { zone: 'dakar' },
+    document: { getElementById: () => banner },
+    formatPrice: amount => `${new Intl.NumberFormat('fr-FR').format(amount)} FCFA`,
+    cartTotals: zone => ({ total: zone === 'retrait' ? 10000 : 11000 }),
+    STORE_CONFIG: { phone: '+221 78 155 88 13' },
+    window: { location: { assign: destination => destinations.push(destination) } }
+  };
+  vm.runInNewContext(orangeFunction, context);
+  context.initiateOrangeMoneyPayment();
+
+  assert.deepEqual(destinations, ['tel:%23144%23']);
+  assert.equal(banner.classList.added, 'is-visible');
+  assert.ok(banner.textContent.includes(context.formatPrice(11000)));
+  assert.match(banner.textContent, /\+221 78 155 88 13/);
+
+  context.checkoutState.zone = 'retrait';
+  context.initiateOrangeMoneyPayment();
+  assert.ok(banner.textContent.includes(context.formatPrice(10000)));
+});
+
 test('Dakar delivery is added to the total and pickup in Thiaroye is free', () => {
   const app = fs.readFileSync(path.join(root, 'assets', 'app.js'), 'utf8');
   const data = fs.readFileSync(path.join(root, 'assets', 'data.js'), 'utf8');
@@ -140,7 +168,7 @@ test('pages preserve the light brand palette on dark-mode phones', () => {
     assert.match(html, /<meta name="color-scheme" content="light">/, page);
     assert.match(html, /<style>html\{color-scheme:only light!important\}<\/style>/, page);
     if (html.includes('assets/app.js')) {
-      assert.match(html, /assets\/app\.js\?v=20261113-delivery-1/, page);
+      assert.match(html, /assets\/app\.js\?v=20261113-orange-direct-1/, page);
     }
     assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
   }

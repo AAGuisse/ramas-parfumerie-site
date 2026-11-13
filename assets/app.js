@@ -438,8 +438,9 @@ function initiateWavePayment(){
 function initiateOrangeMoneyPayment(){
   const banner = document.getElementById("paymentBanner");
   const amount = formatPrice(cartTotals(checkoutState.zone).total);
-  banner.textContent = "Moyen choisi : Orange Money. Après l’envoi de la commande, envoyez " + amount + " au " + STORE_CONFIG.phone + ".";
+  banner.textContent = "Orange Money s’ouvre. Envoyez " + amount + " au " + STORE_CONFIG.phone + " puis confirmez le transfert.";
   banner.classList.add("is-visible");
+  window.location.assign("tel:%23144%23");
 }
 function confirmPayment(){
   checkoutState.orderId = "RP-" + new Date().getFullYear() + "-" + Date.now().toString().slice(-6);
