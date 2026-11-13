@@ -102,6 +102,39 @@ test('Render storefront loads products from the shared API', async () => {
   assert.equal(context.window.STORE_PRODUCTS[0].name, product.name);
 });
 
+test('Netlify and Vercel storefronts load products from the shared API', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'assets', 'data.js'), 'utf8');
+
+  for (const hostname of ['verdant-parfait-7ff9ca.netlify.app', 'ramas-parfumerie-site.vercel.app']) {
+    let requestedUrl;
+    const context = vm.createContext({
+      window: {},
+      location: { hostname },
+      fetch: async (url, options) => {
+        requestedUrl = url;
+        assert.equal(options.cache, 'no-store');
+        return {
+          ok: true,
+          json: async () => ({
+            managed: true,
+            persistent: true,
+            products: [{ id: 24, name: 'Produit partagé', categoryId: 'parfums' }]
+          })
+        };
+      },
+      localStorage: { getItem: () => null },
+      console
+    });
+
+    vm.runInContext(source, context);
+    await context.window.STORE_PRODUCTS_READY;
+
+    assert.equal(context.window.STORE_API_BASE, 'https://ramas-parfumerie-app.onrender.com');
+    assert.equal(requestedUrl, 'https://ramas-parfumerie-app.onrender.com/api/products');
+    assert.equal(context.window.STORE_PRODUCTS[0].name, 'Produit partagé');
+  }
+});
+
 test('admin server host loads its catalogue from the shared API', async () => {
   const product = { id: 21, name: 'Produit partagé', categoryId: 'parfums' };
   let requestedUrl;

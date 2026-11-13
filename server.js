@@ -36,7 +36,9 @@ app.disable('x-powered-by');
 const allowedOrigins = new Set([
   'https://aaguisse.github.io',
   'https://ramas-parfumerie.github.io',
-  'https://ramas-parfumerie-site.onrender.com'
+  'https://ramas-parfumerie-site.onrender.com',
+  'https://ramas-parfumerie-site.vercel.app',
+  'https://verdant-parfait-7ff9ca.netlify.app'
 ]);
 
 app.use((req, res, next) => {

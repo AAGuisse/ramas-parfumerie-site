@@ -129,6 +129,18 @@ test('catalogue API requires admin access, persists locally in tests, and report
   assert.equal(renderStorefrontPreflight.status, 204);
   assert.equal(renderStorefrontPreflight.headers.get('access-control-allow-origin'), 'https://ramas-parfumerie-site.onrender.com');
 
+  for (const origin of [
+    'https://verdant-parfait-7ff9ca.netlify.app',
+    'https://ramas-parfumerie-site.vercel.app'
+  ]) {
+    const deploymentPreflight = await fetch(`${baseUrl}/api/products`, {
+      method: 'OPTIONS',
+      headers: { Origin: origin }
+    });
+    assert.equal(deploymentPreflight.status, 204);
+    assert.equal(deploymentPreflight.headers.get('access-control-allow-origin'), origin);
+  }
+
   const rejectedPreflight = await fetch(`${baseUrl}/api/products`, {
     method: 'OPTIONS',
     headers: { Origin: 'https://untrusted.example' }
