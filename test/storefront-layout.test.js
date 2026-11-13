@@ -54,6 +54,8 @@ test('pages preserve the light brand palette on dark-mode phones', () => {
   for (const page of pages) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.match(html, /<meta name="theme-color" content="#FCF8F2">/, page);
+    assert.match(html, /<meta name="color-scheme" content="light">/, page);
+    assert.match(html, /<style>html\{color-scheme:only light\}<\/style>/, page);
     assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
   }
 });

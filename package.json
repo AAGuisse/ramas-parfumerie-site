@@ -4,6 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "build:storefront": "node scripts/build-storefront.js",
     "start": "node server.js",
     "test": "node --test"
   },

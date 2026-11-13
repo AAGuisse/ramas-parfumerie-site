@@ -1,13 +1,13 @@
 {
-  "version": 2,
-  "builds": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "npm run build:storefront",
+  "outputDirectory": "dist",
+  "redirects": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": { "includeFiles": ["*.html", "assets/**"] }
+      "source": "/admin.html",
+      "destination": "https://ramas-parfumerie-app.onrender.com/admin.html",
+      "permanent": false
     }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/api/index.js" }
   ]
 }

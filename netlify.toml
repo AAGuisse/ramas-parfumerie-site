@@ -1,0 +1,9 @@
+[build]
+command = "npm run build:storefront"
+publish = "dist"
+
+[[redirects]]
+from = "/admin.html"
+to = "https://ramas-parfumerie-app.onrender.com/admin.html"
+status = 302
+force = true
