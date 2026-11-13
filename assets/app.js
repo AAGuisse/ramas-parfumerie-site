@@ -411,8 +411,11 @@ document.querySelectorAll(".payment-card").forEach(card => {
 function initiateWavePayment(){
   const banner = document.getElementById("paymentBanner");
   const waveUrl = "https://pay.wave.com/m/M_sn_5g5xdPQdjvDw/c/sn/";
-  banner.innerHTML = 'Moyen choisi : <strong>Wave</strong>. Le paiement pourra être effectué après l’envoi de la commande : <a href="' + waveUrl + '" target="_blank" rel="noopener">Payer avec Wave</a>.';
+  banner.innerHTML = 'Moyen choisi : <strong>Wave</strong>. Wave s’ouvre dans un nouvel onglet. Après le paiement, revenez ici pour envoyer votre commande sur WhatsApp.';
   banner.classList.add("is-visible");
+  const paymentWindow = window.open(waveUrl, "_blank");
+  if (paymentWindow) paymentWindow.opener = null;
+  else window.location.assign(waveUrl);
 }
 function initiateOrangeMoneyPayment(){
   const banner = document.getElementById("paymentBanner");

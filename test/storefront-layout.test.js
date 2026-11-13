@@ -1,9 +1,41 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { test } = require('node:test');
 
 const root = path.join(__dirname, '..');
+
+test('selecting Wave opens its payment link immediately and falls back when popups are blocked', () => {
+  const app = fs.readFileSync(path.join(root, 'assets', 'app.js'), 'utf8');
+  const waveFunction = app.match(/function initiateWavePayment\(\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(waveFunction);
+
+  const waveUrl = 'https://pay.wave.com/m/M_sn_5g5xdPQdjvDw/c/sn/';
+  const banner = { innerHTML: '', classList: { add(value) { this.added = value; } } };
+  const popup = { opener: {} };
+  const opened = [];
+  const context = {
+    document: { getElementById: () => banner },
+    window: {
+      open(...args) { opened.push(args); return popup; },
+      location: { assign() { assert.fail('Wave should open in a new tab when allowed'); } }
+    }
+  };
+  vm.runInNewContext(waveFunction, context);
+  context.initiateWavePayment();
+
+  assert.deepEqual(opened, [[waveUrl, '_blank']]);
+  assert.equal(popup.opener, null);
+  assert.equal(banner.classList.added, 'is-visible');
+  assert.match(banner.innerHTML, /Après le paiement, revenez ici/);
+
+  let fallbackUrl;
+  context.window.open = () => null;
+  context.window.location.assign = url => { fallbackUrl = url; };
+  context.initiateWavePayment();
+  assert.equal(fallbackUrl, waveUrl);
+});
 
 test('storefront product photos are contained in smaller square cards and bounded detail views', () => {
   const styles = fs.readFileSync(path.join(root, 'assets', 'style.css'), 'utf8');
@@ -59,6 +91,9 @@ test('pages preserve the light brand palette on dark-mode phones', () => {
     assert.match(html, /<meta name="theme-color" content="#FCF8F2">/, page);
     assert.match(html, /<meta name="color-scheme" content="light">/, page);
     assert.match(html, /<style>html\{color-scheme:only light!important\}<\/style>/, page);
+    if (html.includes('assets/app.js')) {
+      assert.match(html, /assets\/app\.js\?v=20261113-wave-direct-1/, page);
+    }
     assert.match(html, /assets\/style\.css\?v=20261109-responsive-7/, page);
   }
 });
